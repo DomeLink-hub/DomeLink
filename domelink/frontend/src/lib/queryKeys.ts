@@ -1,0 +1,15 @@
+export const queryKeys = {
+  architects: (filters?: Record<string, unknown>) => ["architects", filters] as const,
+  architectBySlug: (slug: string) => ["architect", slug] as const,
+  consultations: () => ["consultations"] as const,
+  savedArchitects: () => ["saved-architects"] as const,
+  projectBriefs: () => ["project-briefs"] as const,
+  profile: () => ["profile"] as const,
+  portfolio: (architectId: string) => ["portfolio", architectId] as const,
+  team: (architectId: string) => ["team", architectId] as const,
+  chat: (consultationId: string) => ["chat", consultationId] as const,
+  architectStats: () => ["architect-stats"] as const,
+  adminOverview: () => ["admin-overview"] as const,
+  adminUsers: () => ["admin-users"] as const,
+  adminArchitects: () => ["admin-architects"] as const,
+};
