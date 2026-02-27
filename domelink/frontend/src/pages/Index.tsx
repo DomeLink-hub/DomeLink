@@ -10,9 +10,22 @@ import DomeCTA from "@/components/layout/DomeCTA";
 import DomeFlow from "@/components/layout/DomeFlow";
 import DomeOrbit from "@/components/layout/DomeOrbit";
 import { MapPin, Layers, Wallet, Search } from "lucide-react";
+import HomeHeroModel from "@/components/3d/HomeHeroModel";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 const HeroScene = lazy(() => import("@/components/3d/HeroScene"));
 
 const Index = () => {
+  const activityData = [
+    { label: "Mon", value: 24 },
+    { label: "Tue", value: 36 },
+    { label: "Wed", value: 42 },
+    { label: "Thu", value: 38 },
+    { label: "Fri", value: 52 },
+    { label: "Sat", value: 44 },
+    { label: "Sun", value: 60 },
+  ];
+
   return (
     <PageTransition>
       <Header />
@@ -22,6 +35,9 @@ const Index = () => {
             <Suspense fallback={null}>
               <HeroScene />
             </Suspense>
+          </div>
+          <div className="absolute right-6 md:right-12 top-28 md:top-24 z-20 w-[260px] md:w-[360px] lg:w-[420px] h-[260px] md:h-[360px] lg:h-[420px] pointer-events-none">
+            <HomeHeroModel className="h-full w-full rounded-[32px] border border-white/15 bg-white/5 shadow-[0_30px_80px_rgba(0,0,0,0.35)]" />
           </div>
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -136,6 +152,55 @@ const Index = () => {
                       Search Architects
                     </motion.button>
                   </Link>
+                </div>
+              </div>
+            </Reveal>
+          </Container>
+        </Section>
+
+        <Section padding="small">
+          <Container>
+            <Reveal>
+              <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
+                <div>
+                  <span className="dome-kicker">Activity Lens</span>
+                  <h2 className="text-display-md dome-bracket mt-4">Design intelligence in motion</h2>
+                  <p className="text-body text-muted-foreground mt-4 max-w-2xl">
+                    DomeLink surfaces momentum across briefs, consultations, and studio engagement to keep every project aligned.
+                  </p>
+                  <div className="grid grid-cols-3 gap-4 mt-6">
+                    <div className="dome-card p-4">
+                      <p className="text-caption text-muted-foreground">Live briefs</p>
+                      <p className="text-display-sm mt-2">186</p>
+                    </div>
+                    <div className="dome-card p-4">
+                      <p className="text-caption text-muted-foreground">Avg response</p>
+                      <p className="text-display-sm mt-2">3.1h</p>
+                    </div>
+                    <div className="dome-card p-4">
+                      <p className="text-caption text-muted-foreground">Consultations</p>
+                      <p className="text-display-sm mt-2">64</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="dome-card p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-display-sm">Weekly Pulse</h3>
+                    <span className="text-caption text-muted-foreground">Demo</span>
+                  </div>
+                  <ChartContainer
+                    config={{
+                      value: { label: "Engagement", color: "hsl(var(--primary))" },
+                    }}
+                    className="h-56"
+                  >
+                    <AreaChart data={activityData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                      <CartesianGrid vertical={false} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
+                    </AreaChart>
+                  </ChartContainer>
                 </div>
               </div>
             </Reveal>

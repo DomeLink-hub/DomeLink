@@ -1,2 +1,3 @@
-import router from "../routes/user.dashboard";
-export default router;
+import { userRouter } from "./user.routes.js";
+
+export default userRouter;

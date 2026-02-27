@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -11,6 +13,8 @@ import DomeCTA from "@/components/layout/DomeCTA";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
+import StudioScene from "@/components/3d/StudioScene";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const ArchitectPortal = () => {
   const navigate = useNavigate();
@@ -22,6 +26,17 @@ const ArchitectPortal = () => {
     queryKey: queryKeys.consultations(),
     queryFn: api.getConsultations,
   });
+
+  const throughputData = useMemo(
+    () => [
+      { label: "Mon", value: (stats?.pendingRequests ?? 0) + 4 },
+      { label: "Tue", value: (stats?.pendingRequests ?? 0) + 6 },
+      { label: "Wed", value: (stats?.pendingRequests ?? 0) + 3 },
+      { label: "Thu", value: (stats?.pendingRequests ?? 0) + 8 },
+      { label: "Fri", value: (stats?.pendingRequests ?? 0) + 5 },
+    ],
+    [stats?.pendingRequests],
+  );
 
   const handleLogout = async () => {
     api.clearToken();
@@ -57,6 +72,34 @@ const ArchitectPortal = () => {
 
         <Section padding="small">
           <Container>
+            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-8 mb-10">
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Studio Preview</h3>
+                  <span className="text-caption text-muted-foreground">Live model</span>
+                </div>
+                <StudioScene className="h-64 w-full" />
+              </div>
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Request Throughput</h3>
+                  <span className="text-caption text-muted-foreground">This week</span>
+                </div>
+                <ChartContainer
+                  config={{
+                    value: { label: "Requests", color: "hsl(var(--primary))" },
+                  }}
+                  className="h-48"
+                >
+                  <AreaChart data={throughputData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
+            </div>
             <Grid cols={3} gap="large">
               <div className="dome-panel p-6">
                 <h3 className="text-display-sm mb-6">Overview</h3>

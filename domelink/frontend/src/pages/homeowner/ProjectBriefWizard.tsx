@@ -7,7 +7,21 @@ import PageTransition from "@/components/layout/PageTransition";
 import { api } from "@/lib/api";
 import ProjectBrief3D from "@/components/3d/ProjectBrief3D";
 
-const steps = [
+type StepKey =
+  | "projectName"
+  | "projectType"
+  | "plotSize"
+  | "budget"
+  | "location"
+  | "stylePreferences"
+  | "timeline"
+  | "requirements"
+  | "inspirationImages";
+
+type Step = { label: string; key: StepKey; options?: string[] };
+
+const steps: Step[] = [
+  { label: "Project Name", key: "projectName" },
   { label: "Project Type", key: "projectType", options: ["residential", "commercial", "interior", "landscape"] },
   { label: "Plot Size (sq ft)", key: "plotSize" },
   { label: "Budget (USD)", key: "budget" },
@@ -19,14 +33,36 @@ const steps = [
 ];
 
 export default function ProjectBriefWizard() {
+  type ProjectBriefForm = {
+    projectName: string;
+    projectType: "residential" | "commercial" | "interior" | "landscape" | "";
+    plotSize: string;
+    budget: string;
+    location: string;
+    stylePreferences: string[];
+    timeline: string;
+    requirements: string;
+    inspirationImages: string[];
+    status?: "draft" | "submitted" | "in_progress" | "completed";
+  };
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<any>({ stylePreferences: [], inspirationImages: [] });
+  const [form, setForm] = useState<ProjectBriefForm>({
+    projectName: "",
+    projectType: "",
+    plotSize: "",
+    budget: "",
+    location: "",
+    stylePreferences: [],
+    timeline: "",
+    requirements: "",
+    inspirationImages: [],
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleChange = (key: string, value: any) => {
-    setForm((prev: any) => ({ ...prev, [key]: value }));
+  const handleChange = <K extends keyof ProjectBriefForm>(key: K, value: ProjectBriefForm[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleNext = () => {
@@ -47,7 +83,31 @@ export default function ProjectBriefWizard() {
     setLoading(true);
     setError("");
     try {
-      await api.createProjectBrief(form);
+      if (
+        !form.projectName ||
+        !form.projectType ||
+        !form.plotSize ||
+        !form.budget ||
+        !form.location ||
+        !form.timeline ||
+        !form.requirements
+      ) {
+        setError("Please complete all required fields.");
+        setLoading(false);
+        return;
+      }
+      await api.createProjectBrief({
+        projectName: form.projectName,
+        projectType: form.projectType,
+        plotSize: form.plotSize,
+        budget: form.budget,
+        location: form.location,
+        stylePreferences: form.stylePreferences,
+        timeline: form.timeline,
+        requirements: form.requirements,
+        inspirationImages: form.inspirationImages,
+        status: "submitted",
+      });
       navigate("/homeowner/dashboard?brief=done");
     } catch (e) {
       setError("Failed to submit project brief. Please try again.");
@@ -74,14 +134,23 @@ export default function ProjectBriefWizard() {
                 <ProjectBrief3D plotSize={form.plotSize} style={(form.stylePreferences && form.stylePreferences[0]) || "modern"} />
               </div>
             )}
+            {current.key === "projectName" && (
+              <input
+                type="text"
+                className="dome-input w-full"
+                value={form.projectName}
+                onChange={e => handleChange("projectName", e.target.value)}
+                placeholder="e.g. Modern Family Home"
+              />
+            )}
             {current.key === "projectType" && (
               <select
                 className="dome-input w-full"
                 value={form.projectType || ""}
-                onChange={e => handleChange("projectType", e.target.value)}
+                onChange={e => handleChange("projectType", e.target.value as ProjectBriefForm["projectType"])}
               >
                 <option value="">Select type</option>
-                {current.options.map((opt: string) => (
+                {(current.options ?? []).map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>

@@ -15,7 +15,7 @@ const roleHome = (role: "homeowner" | "architect") => (role === "architect" ? "/
 const Signup = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signup, loading, error, user } = useAuth();
+  const { signup, loading } = useAuth();
   const roleParam = new URLSearchParams(location.search).get("role");
   const defaultRole: "homeowner" | "architect" = roleParam === "architect" ? "architect" : "homeowner";
   const [formData, setFormData] = useState({ 
@@ -34,8 +34,8 @@ const Signup = () => {
       await signup(formData.role, formData.name, formData.email, formData.password);
       toast.success("Account created successfully!");
       navigate(roleHome(formData.role));
-    } catch (err: any) {
-      setFormError(err.message || "Unable to create account");
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Unable to create account");
     } finally {
       setIsSubmitting(false);
     }

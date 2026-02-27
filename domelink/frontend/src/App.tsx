@@ -137,6 +137,14 @@ const AppShell = () => {
               }
             />
             <Route
+              path="/homeowner/budget-reality"
+              element={
+                <ProtectedRoute roles={["homeowner", "admin"]}>
+                  <BudgetRealityChecker />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/homeowner/consultations"
               element={
                 <ProtectedRoute roles={["homeowner", "admin"]}>
@@ -157,6 +165,14 @@ const AppShell = () => {
               element={
                 <ProtectedRoute roles={["homeowner", "admin"]}>
                   <HomeownerProjectBrief />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/homeowner/project-brief/wizard"
+              element={
+                <ProtectedRoute roles={["homeowner", "admin"]}>
+                  <ProjectBriefWizard />
                 </ProtectedRoute>
               }
             />
@@ -238,38 +254,36 @@ const AppShell = () => {
         </Suspense>
       </AnimatePresence>
       {/* Global Chatbot Toggle and Modal */}
-      {user && (
-        <>
-          <button
-            onClick={() => setChatOpen((v) => !v)}
-            className="fixed bottom-6 right-6 z-[100] bg-foreground text-background rounded-full shadow-lg p-4 hover:bg-primary transition-all"
-            aria-label="Open AI Chatbot"
-          >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 15s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></svg>
-          </button>
-          <ChatModal
-            isOpen={chatOpen}
-            onClose={() => setChatOpen(false)}
-            architect={{
-              _id: "ai-bot",
-              name: "Dome AI Assistant",
-              specialty: "AI Chatbot",
-              profileImage: "/ai-bot.png",
-              location: "Cloud",
-              rating: 5,
-              startingPrice: 0,
-              about: "Your helpful AI assistant for DomeLink.",
-              heroImage: "",
-              projects: [],
-              templates: [],
-              experience: "Infinite",
-              teamSize: 1,
-              slug: "ai-bot"
-            }}
-            consultationId={null}
-          />
-        </>
-      )}
+      <>
+        <button
+          onClick={() => setChatOpen((v) => !v)}
+          className="fixed bottom-6 right-6 z-[100] bg-foreground text-background rounded-full shadow-lg p-4 hover:bg-primary transition-all"
+          aria-label="Open AI Chatbot"
+        >
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 15s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></svg>
+        </button>
+        <ChatModal
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+          architect={{
+            _id: "ai-bot",
+            name: "Dome AI Assistant",
+            specialty: "AI Chatbot",
+            profileImage: "/placeholder.svg",
+            location: "Cloud",
+            rating: 5,
+            startingPrice: 0,
+            about: "Your helpful AI assistant for DomeLink.",
+            heroImage: "",
+            projects: [],
+            templates: [],
+            experience: "Infinite",
+            teamSize: 1,
+            slug: "ai-bot"
+          }}
+          consultationId={null}
+        />
+      </>
     </>
   );
 };

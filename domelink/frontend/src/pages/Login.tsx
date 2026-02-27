@@ -19,7 +19,7 @@ const roleHome = (role: "homeowner" | "architect" | "admin") => {
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loading, error, user } = useAuth();
+  const { login, loading, user } = useAuth();
   const roleParam = new URLSearchParams(location.search).get("role");
   const role: "homeowner" | "architect" = roleParam === "architect" ? "architect" : "homeowner";
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -34,8 +34,8 @@ const Login = () => {
       toast.success("Welcome back!");
       const from = new URLSearchParams(location.search).get("from");
       navigate(from || roleHome(role));
-    } catch (err: any) {
-      setFormError(err.message || "Unable to sign in");
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Unable to sign in");
     } finally {
       setIsSubmitting(false);
     }

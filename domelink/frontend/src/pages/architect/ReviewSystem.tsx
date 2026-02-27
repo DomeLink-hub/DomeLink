@@ -1,31 +1,39 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Container, Section } from "@/components/layout/Layout";
 import PageTransition from "@/components/layout/PageTransition";
-import { api } from "@/lib/api";
+import { api, Review } from "@/lib/api";
 
 export default function ReviewSystem() {
   const { architectId } = useParams();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
+    if (!architectId) {
+      setReviews([]);
+      return;
+    }
     try {
-      const res = await api.getReviews(architectId!);
+      const res = await api.getReviews(architectId);
       setReviews(res);
     } catch (e) {
       setReviews([]);
     }
-  };
+  }, [architectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!architectId) {
+      setError("Architect not found.");
+      return;
+    }
     setLoading(true);
     setError("");
     setSuccess("");
@@ -43,7 +51,7 @@ export default function ReviewSystem() {
   };
 
   // Fetch reviews on mount
-  useEffect(() => { fetchReviews(); }, [architectId]);
+  useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
   return (
     <PageTransition>
@@ -86,8 +94,8 @@ export default function ReviewSystem() {
           <div className="space-y-4">
             {reviews.length === 0 && <div>No reviews yet.</div>}
             {reviews.map((r, idx) => (
-              <div key={idx} className="dome-card p-4">
-                <div className="font-semibold mb-1">{r.user?.name || "Anonymous"}</div>
+              <div key={r._id || idx} className="dome-card p-4">
+                <div className="font-semibold mb-1">{(typeof r.reviewer === "object" ? r.reviewer?.name : r.reviewer) || "Anonymous"}</div>
                 <div className="text-yellow-500 mb-1">{"★".repeat(r.rating)}<span className="text-gray-400">{"★".repeat(5 - r.rating)}</span></div>
                 <div className="text-sm mb-1">{r.comment}</div>
                 <div className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleString()}</div>

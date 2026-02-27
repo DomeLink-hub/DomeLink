@@ -7,10 +7,11 @@ import PageTransition from "@/components/layout/PageTransition";
 import { api } from "@/lib/api";
 
 export default function BudgetRealityChecker() {
+  type BudgetRealityResult = { message?: string; suggestions?: string[]; error?: string };
   const [budget, setBudget] = useState(0);
   const [plotSize, setPlotSize] = useState("");
   const [projectType, setProjectType] = useState("");
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<BudgetRealityResult | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 

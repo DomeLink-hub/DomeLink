@@ -4,24 +4,30 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Container, Section } from "@/components/layout/Layout";
 import PageTransition from "@/components/layout/PageTransition";
-import { api } from "@/lib/api";
+import { api, type PortfolioProject } from "@/lib/api";
 
 export default function PortfolioBuilder() {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [form, setForm] = useState<any>({ title: "", images: [], description: "", location: "", year: "", area: "" });
+  type PortfolioForm = Omit<PortfolioProject, "_id" | "architectId"> & { architectId?: string };
+  const [projects, setProjects] = useState<PortfolioProject[]>([]);
+  const [form, setForm] = useState<PortfolioForm>({ title: "", images: [], description: "", location: "", year: "", area: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleChange = (key: string, value: any) => {
-    setForm((prev: any) => ({ ...prev, [key]: value }));
+  const handleChange = <K extends keyof PortfolioForm>(key: K, value: PortfolioForm[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleAddProject = async () => {
     setLoading(true);
     setError("");
     try {
-      const newProject = await api.createPortfolio(form);
+      const { user } = await api.me();
+      const payload: Omit<PortfolioProject, "_id"> = {
+        ...form,
+        architectId: form.architectId ?? user.id,
+      };
+      const newProject = await api.createPortfolio(payload);
       setProjects([...projects, newProject]);
       setForm({ title: "", images: [], description: "", location: "", year: "", area: "" });
     } catch (e) {
@@ -50,7 +56,7 @@ export default function PortfolioBuilder() {
               className="dome-input w-full mb-2"
               placeholder="Image URLs (comma separated)"
               value={form.images.join(", ")}
-              onChange={e => handleChange("images", e.target.value.split(",").map((s: string) => s.trim()))}
+              onChange={e => handleChange("images", e.target.value.split(",").map((value) => value.trim()).filter(Boolean))}
             />
             <textarea
               className="dome-input w-full mb-2"

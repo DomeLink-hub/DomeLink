@@ -10,7 +10,7 @@ const budgetRealitySchema = z.object({
 });
 
 export const budgetRealityCheck = asyncHandler(async (req: Request, res: Response) => {
-  const { budget, plotSize, projectType } = budgetRealitySchema.parse(req.body);
+  const { budget, projectType } = budgetRealitySchema.parse(req.body);
 
   // Find architects/projects matching type and plot size
   const architects = await ArchitectModel.find({
@@ -23,7 +23,7 @@ export const budgetRealityCheck = asyncHandler(async (req: Request, res: Respons
   const maxPrice = architects.reduce((max, a) => Math.max(max, a.startingPrice), 0);
 
   let message = "";
-  let suggestions: string[] = [];
+  const suggestions: string[] = [];
   if (affordable.length > 0) {
     message = `Your budget is realistic! You can work with ${affordable.length} architect(s) for a ${projectType} project.`;
     if (budget < minPrice + (maxPrice - minPrice) * 0.2) {

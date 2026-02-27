@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import { ArchitectModel } from "../models/Architect.js";
 import { matchArchitectsByStyle } from "../utils/styleMatcher.js";
-import { UserModel } from "../models/User.js";
 
 export const getStyleRecommendations = async (req: Request, res: Response) => {
   // Assume quizResult is sent as query param: ?tags=modern,minimalist

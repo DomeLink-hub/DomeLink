@@ -12,4 +12,9 @@ export const queryKeys = {
   adminOverview: () => ["admin-overview"] as const,
   adminUsers: () => ["admin-users"] as const,
   adminArchitects: () => ["admin-architects"] as const,
+  notifications: () => ["notifications"] as const,
+  payments: () => ["payments"] as const,
+  reviews: () => ["reviews"] as const,
+  supportTickets: () => ["support-tickets"] as const,
+  analytics: () => ["analytics"] as const,
 };

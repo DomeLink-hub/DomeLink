@@ -5,5 +5,5 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 export const analyticsRouter = Router();
 
 analyticsRouter.post("/", requireAuth, trackEvent);
-analyticsRouter.get("/summary", requireAuth, requireRole(["admin"]), getAnalyticsSummary);
+analyticsRouter.get("/summary", requireAuth, getAnalyticsSummary);
 analyticsRouter.get("/", requireAuth, requireRole(["admin"]), getAnalytics);

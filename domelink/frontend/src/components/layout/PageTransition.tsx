@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { ReactNode } from "react";
+import PageEnhancer from "./PageEnhancer";
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ const PageTransition = ({ children }: PageTransitionProps) => {
       className="min-h-screen"
     >
       {children}
+      <PageEnhancer />
     </motion.div>
   );
 };

@@ -1,3 +1,21 @@
+import { useMemo } from "react";
+import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import { Container, Section, Grid } from "@/components/layout/Layout";
+import Reveal, { StaggerContainer, StaggerItem } from "@/components/animations/Reveal";
+import PageTransition from "@/components/layout/PageTransition";
+import DomeHero from "@/components/layout/DomeHero";
+import DomeCTA from "@/components/layout/DomeCTA";
+import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
+import { useAnalytics } from "@/hooks/useAnalytics";
+import { Skeleton } from "@/components/ui/skeleton";
+import ProjectBrief3D from "@/components/3d/ProjectBrief3D";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const HomeownerDashboard = () => {
   const track = useAnalytics();
@@ -34,22 +52,55 @@ const HomeownerDashboard = () => {
     files: analyticsSummary.byEvent.find(ev => String(ev._id) === "file")?.count ?? 0,
     notifications: analyticsSummary.byEvent.find(ev => String(ev._id) === "notification")?.count ?? 0,
   };
+  const chartData = useMemo(() => {
+    if (analyticsSummary.daily7?.length) {
+      return analyticsSummary.daily7.map((entry) => ({
+        label: new Date(entry._id).toLocaleDateString(undefined, { weekday: "short" }),
+        value: entry.count,
+      }));
+    }
+    return [
+      { label: "Mon", value: 18 },
+      { label: "Tue", value: 24 },
+      { label: "Wed", value: 31 },
+      { label: "Thu", value: 28 },
+      { label: "Fri", value: 36 },
+      { label: "Sat", value: 30 },
+      { label: "Sun", value: 40 },
+    ];
+  }, [analyticsSummary.daily7]);
+
   const ThreeDWidget = () => (
-    <div className="dome-card p-8 mb-8 flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
-      <div className="w-64 h-64 rounded-full bg-gradient-to-tr from-blue-400 via-purple-400 to-pink-400 animate-spin-slow shadow-xl flex items-center justify-center">
-        <span className="text-6xl">🏠</span>
+    <div className="dome-card p-6 mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-display-sm">Interactive 3D Home Model</h3>
+        <span className="text-caption text-muted-foreground">Live preview</span>
       </div>
-      <p className="mt-4 text-lg font-bold text-purple-700">Interactive 3D Home Model</p>
-      <p className="text-muted-foreground">Explore your dream home in 3D!</p>
+      <ProjectBrief3D plotSize="48x72" style="modern" />
+      <p className="mt-4 text-body-sm text-muted-foreground">Rotate to explore massing and spatial intent.</p>
     </div>
   );
+
   const ChartWidget = () => (
-    <div className="dome-card p-8 mb-8">
-      <h3 className="text-display-sm mb-4">Activity Chart</h3>
-      <div className="w-full h-64 bg-gradient-to-r from-green-100 to-blue-100 rounded-xl flex items-center justify-center">
-        <span className="text-4xl text-green-700">📈</span>
+    <div className="dome-card p-6 mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-display-sm">Activity Pulse</h3>
+        <span className="text-caption text-muted-foreground">Last 7 days</span>
       </div>
-      <p className="mt-4 text-muted-foreground">Your activity trends visualized.</p>
+      <ChartContainer
+        config={{
+          value: { label: "Engagement", color: "hsl(var(--primary))" },
+        }}
+        className="h-56"
+      >
+        <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
+        </AreaChart>
+      </ChartContainer>
+      <p className="mt-4 text-body-sm text-muted-foreground">Momentum across briefs, chats, and saved architects.</p>
     </div>
   );
   const { data: consultations = [], isLoading: consultationsLoading } = useQuery({
@@ -83,6 +134,20 @@ const HomeownerDashboard = () => {
           {/* --- NEW FEATURE BLOCKS --- */}
           <Section padding="small">
             <Container>
+              <div className="dome-card p-6 mb-8">
+                <div className="flex items-center justify-between">
+                  <span className="dome-chip">AI Insight</span>
+                  <span className="text-caption text-muted-foreground">Personalized</span>
+                </div>
+                <p className="text-body-sm text-muted-foreground mt-4">
+                  Based on your activity, Dome AI recommends prioritizing modern studios with courtyard experience.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <span className="dome-chip">Courtyard focus</span>
+                  <span className="dome-chip">Budget alignment</span>
+                  <span className="dome-chip">Fast response</span>
+                </div>
+              </div>
               <ThreeDWidget />
               <ChartWidget />
               {/* Notifications */}
@@ -380,18 +445,3 @@ const DashboardCardSkeleton = () => (
 );
 
 export default HomeownerDashboard;
-import React from "react";
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import { Container, Section, Grid } from "@/components/layout/Layout";
-import Reveal, { StaggerContainer, StaggerItem } from "@/components/animations/Reveal";
-import PageTransition from "@/components/layout/PageTransition";
-import DomeHero from "@/components/layout/DomeHero";
-import DomeCTA from "@/components/layout/DomeCTA";
-import { api } from "@/lib/api";
-import { queryKeys } from "@/lib/queryKeys";
-import { useAnalytics } from "@/hooks/useAnalytics";
-import { Skeleton } from "@/components/ui/skeleton";

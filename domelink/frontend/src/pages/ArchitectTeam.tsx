@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -11,6 +12,8 @@ import DomeHero from "@/components/layout/DomeHero";
 import DomeCTA from "@/components/layout/DomeCTA";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
+import StudioScene from "@/components/3d/StudioScene";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 interface TeamMemberView {
   id: string;
@@ -133,6 +136,17 @@ const ArchitectTeam = () => {
     }
   }, [persistedTeam]);
 
+  const collaborationData = useMemo(
+    () => [
+      { label: "Mon", value: team.length + 2 },
+      { label: "Tue", value: team.length + 4 },
+      { label: "Wed", value: team.length + 3 },
+      { label: "Thu", value: team.length + 6 },
+      { label: "Fri", value: team.length + 5 },
+    ],
+    [team.length],
+  );
+
   const getStatusColor = (status: TeamMemberView["status"]) => {
     switch (status) {
       case "online":
@@ -213,6 +227,49 @@ const ArchitectTeam = () => {
             </Container>
           </Section>
         )}
+
+        <Section padding="small">
+          <Container>
+            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-8">
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Studio Synchrony</h3>
+                  <span className="text-caption text-muted-foreground">Live view</span>
+                </div>
+                <StudioScene className="h-64 w-full" />
+              </div>
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Collaboration Load</h3>
+                  <span className="text-caption text-muted-foreground">Team cadence</span>
+                </div>
+                <ChartContainer
+                  config={{
+                    value: { label: "Touches", color: "hsl(var(--primary))" },
+                  }}
+                  className="h-48"
+                >
+                  <AreaChart data={collaborationData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
+                  </AreaChart>
+                </ChartContainer>
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Active members</p>
+                    <p className="text-display-sm mt-2">{team.length}</p>
+                  </div>
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Pending invites</p>
+                    <p className="text-display-sm mt-2">{pendingInvites.length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Container>
+        </Section>
 
         {/* Team Members */}
         <Section padding="small">

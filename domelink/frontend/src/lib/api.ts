@@ -35,6 +35,15 @@ export interface Payment {
   method: "card" | "bank" | "cash";
   createdAt: string;
 }
+export interface Review {
+  _id: string;
+  project?: string;
+  reviewer?: { _id: string; name: string } | string;
+  reviewee?: { _id: string; name: string } | string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
 
 
 import { frontendEnv } from "@/lib/env";
@@ -515,12 +524,16 @@ export const api = {
     });
   },
   getReviews(architectId: string) {
-    return request<any[]>(`/api/reviews/${architectId}`);
+    return request<Review[]>(`/api/reviews/${architectId}`);
   },
-  createReview(payload: { architectId: string; rating: number; comment: string }) {
-    return request<any>(`/api/reviews`, {
+  getMyReviews() {
+    return request<Review[]>("/api/reviews/my");
+  },
+  createReview(payload: { architectId: string; rating: number; comment: string; project?: string }) {
+    const { architectId, ...body } = payload;
+    return request<Review>(`/api/reviews/architect/${architectId}`, {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
   },
   // FIX: Use correct plural endpoint for notifications

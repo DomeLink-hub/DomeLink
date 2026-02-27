@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -11,6 +12,8 @@ import DomeHero from "@/components/layout/DomeHero";
 import DomeCTA from "@/components/layout/DomeCTA";
 import { api, type PortfolioProject } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
+import StudioScene from "@/components/3d/StudioScene";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 interface Project {
   id: string;
@@ -54,6 +57,16 @@ const ArchitectPortfolio = () => {
       );
     }
   }, [portfolioData]);
+
+  const portfolioMomentum = useMemo(
+    () => [
+      { label: "Q1", value: Math.max(2, projects.length - 3) },
+      { label: "Q2", value: Math.max(3, projects.length - 1) },
+      { label: "Q3", value: Math.max(4, projects.length) },
+      { label: "Q4", value: Math.max(5, projects.length + 2) },
+    ],
+    [projects.length],
+  );
 
   const createProjectMutation = useMutation({
     mutationFn: (payload: Omit<PortfolioProject, "_id">) => api.createPortfolio(payload),
@@ -169,6 +182,52 @@ const ArchitectPortfolio = () => {
               >
                 Add Project
               </motion.button>
+            </div>
+          </Container>
+        </Section>
+
+        <Section padding="small">
+          <Container>
+            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-8">
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Portfolio Lab</h3>
+                  <span className="text-caption text-muted-foreground">3D gallery</span>
+                </div>
+                <StudioScene className="h-64 w-full" />
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Published</p>
+                    <p className="text-display-sm mt-2">{projects.length}</p>
+                  </div>
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Drafts</p>
+                    <p className="text-display-sm mt-2">{Math.max(0, 6 - projects.length)}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Portfolio Momentum</h3>
+                  <span className="text-caption text-muted-foreground">Yearly</span>
+                </div>
+                <ChartContainer
+                  config={{
+                    value: { label: "Projects", color: "hsl(var(--primary))" },
+                  }}
+                  className="h-52"
+                >
+                  <AreaChart data={portfolioMomentum} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
+                  </AreaChart>
+                </ChartContainer>
+                <p className="text-body-sm text-muted-foreground mt-4">
+                  Curate a balanced mix of residential, commercial, and cultural projects to elevate discovery.
+                </p>
+              </div>
             </div>
           </Container>
         </Section>

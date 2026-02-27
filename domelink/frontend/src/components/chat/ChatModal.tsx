@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
@@ -19,7 +19,8 @@ type PaymentStatus = "idle" | "processing" | "success";
 const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsultationId }: ChatModalProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialConsultationId ? "success" : "idle");
+  const isAiBot = architect._id === "ai-bot";
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialConsultationId || isAiBot ? "success" : "idle");
   const [consultationId, setConsultationId] = useState<string | null>(initialConsultationId || null);
   const [inputValue, setInputValue] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -33,7 +34,7 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
   const { data: persistedMessages = [] } = useQuery({
     queryKey: queryKeys.chat(consultationId || ""),
     queryFn: () => api.getChat(consultationId || ""),
-    enabled: Boolean(consultationId),
+    enabled: Boolean(consultationId) && !isAiBot,
   });
 
   const markReadMutation = useMutation({
@@ -41,18 +42,17 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
   });
 
   useEffect(() => {
-    setConsultationId(initialConsultationId || null);
-    setPaymentStatus(initialConsultationId ? "success" : "idle");
-  }, [initialConsultationId, isOpen]);
+    setConsultationId(initialConsultationId || (isAiBot ? "ai-session" : null));
+    setPaymentStatus(initialConsultationId || isAiBot ? "success" : "idle");
+  }, [initialConsultationId, isOpen, isAiBot]);
 
   useEffect(() => {
-    if (persistedMessages.length > 0) {
-      setMessages(persistedMessages);
-    }
+    if (!persistedMessages.length) return;
+    setMessages(persistedMessages);
   }, [persistedMessages]);
 
   useEffect(() => {
-    if (!isOpen || !consultationId) return;
+    if (!isOpen || !consultationId || isAiBot) return;
 
     const socketClient = io(import.meta.env.VITE_API_BASE_URL, {
       transports: ["websocket"],
@@ -93,15 +93,15 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
       socketClient.disconnect();
       setSocket(null);
     };
-  }, [isOpen, consultationId, user?.id]);
+  }, [isOpen, consultationId, user?.id, isAiBot]);
 
   useEffect(() => {
-    if (!consultationId || !isOpen || paymentStatus !== "success") return;
+    if (!consultationId || !isOpen || paymentStatus !== "success" || isAiBot) return;
     if (messages.length === 0) return;
     const hasUnread = messages.some((message) => message.senderId._id !== user?.id && !message.readBy.some((entry) => entry.userId === user?.id));
     if (!hasUnread) return;
     markReadMutation.mutate();
-  }, [consultationId, isOpen, messages, paymentStatus, user?.id, markReadMutation]);
+  }, [consultationId, isOpen, messages, paymentStatus, user?.id, markReadMutation, isAiBot]);
 
   const sendMessageMutation = useMutation({
     mutationFn: (message: string) => api.sendChat(consultationId || "", message),
@@ -115,6 +115,10 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
   });
 
   const handlePayment = async () => {
+    if (isAiBot) {
+      setPaymentStatus("success");
+      return;
+    }
     setPaymentStatus("processing");
 
     try {
@@ -138,12 +142,69 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
     }
   };
 
+  const aiPrompt = useMemo(() => {
+    const name = user?.name || "there";
+    return [
+      `Hi ${name}! I can help you scope your project, estimate budgets, and suggest architects.`,
+      "Tell me your project type, location, and target budget to get instant recommendations.",
+    ].join(" ");
+  }, [user?.name]);
+
   const handleSendMessage = () => {
     if (!inputValue.trim() || !consultationId) return;
+
+    if (isAiBot) {
+      const now = new Date().toISOString();
+      const userId = user?.id || "guest";
+      const userName = user?.name || "Guest";
+      const userMessage: ChatMessage = {
+        _id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        consultationId,
+        senderId: { _id: userId, name: userName, role: "homeowner" },
+        message: inputValue,
+        timestamp: now,
+        readBy: [],
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      setInputValue("");
+      setIsTyping(true);
+      const nextResponse = buildAiResponse(inputValue);
+      setTimeout(() => {
+        const botMessage: ChatMessage = {
+          _id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          consultationId,
+          senderId: { _id: architect._id, name: architect.name, role: "architect", avatar: architect.profileImage },
+          message: nextResponse,
+          timestamp: new Date().toISOString(),
+          readBy: [],
+        };
+        setMessages((prev) => [...prev, botMessage]);
+        setIsTyping(false);
+        setTimeout(() => {
+          endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 80);
+      }, 700);
+      return;
+    }
 
     sendMessageMutation.mutate(inputValue);
     setInputValue("");
   };
+
+  useEffect(() => {
+    if (!isOpen || !isAiBot) return;
+    if (messages.length > 0) return;
+    const now = new Date().toISOString();
+    const initialMessage: ChatMessage = {
+      _id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      consultationId: "ai-session",
+      senderId: { _id: architect._id, name: architect.name, role: "architect", avatar: architect.profileImage },
+      message: aiPrompt,
+      timestamp: now,
+      readBy: [],
+    };
+    setMessages([initialMessage]);
+  }, [aiPrompt, architect._id, architect.name, architect.profileImage, isAiBot, isOpen, messages.length]);
 
   const groupedMessages = messages.reduce<Array<{ date: string; items: Array<ChatMessage & { compact: boolean; readLabel?: string }> }>>((acc, message, index) => {
     const date = new Date(message.timestamp).toLocaleDateString();
@@ -163,11 +224,11 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
 
   const handleClose = () => {
     onClose();
-    // Reset state after animation
     setTimeout(() => {
-      setPaymentStatus("idle");
-      setConsultationId(null);
+      setPaymentStatus(isAiBot ? "success" : "idle");
+      setConsultationId(isAiBot ? "ai-session" : null);
       setInputValue("");
+      setMessages(isAiBot ? [] : messages);
     }, 300);
   };
 
@@ -191,7 +252,7 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg md:max-h-[80vh] bg-background z-50 flex flex-col overflow-hidden"
+            className="fixed bottom-8 right-8 md:bottom-12 md:right-12 w-full max-w-lg max-h-[80vh] bg-background z-50 flex flex-col overflow-hidden shadow-xl border border-border rounded-xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-border">
@@ -380,5 +441,25 @@ const CheckIcon = () => (
     <path d="M3 8l4 4 6-8" />
   </svg>
 );
+
+const buildAiResponse = (input: string) => {
+  const normalized = input.toLowerCase();
+  if (normalized.includes("budget")) {
+    return "Share your target budget range and location, and I’ll map architects and cost bands that fit.";
+  }
+  if (normalized.includes("style") || normalized.includes("modern") || normalized.includes("minimal")) {
+    return "Great style direction. Tell me your preferred materials and timeline and I’ll curate matching studios.";
+  }
+  if (normalized.includes("timeline") || normalized.includes("deadline")) {
+    return "We can plan around your timeline. When do you want design kickoff and when do you need permits?";
+  }
+  if (normalized.includes("commercial") || normalized.includes("office")) {
+    return "For commercial projects, I’ll focus on code-ready architects and space-planning teams. What square footage and use case?";
+  }
+  if (normalized.includes("home") || normalized.includes("residential")) {
+    return "For residential projects, I’ll recommend architects with similar homes. What’s your plot size and location?";
+  }
+  return "Tell me your project type, location, and budget range. I’ll generate a tailored plan and shortlist.";
+};
 
 export default ChatModal;

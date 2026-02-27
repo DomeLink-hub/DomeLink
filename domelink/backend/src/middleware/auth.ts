@@ -3,13 +3,6 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError.js";
 import { verifyJwt } from "../utils/jwt.js";
 
-// Extend Express Request type to allow auth property
-declare module "express-serve-static-core" {
-  interface Request {
-    auth?: any;
-  }
-}
-
 export const requireAuth = async (req: Request, _res: Response, next: NextFunction) => {
   const authHeader = req.headers["authorization"] as string | undefined;
   if (!authHeader?.startsWith("Bearer ")) {

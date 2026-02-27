@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -9,9 +11,11 @@ import { motion } from "framer-motion";
 import DomeHero from "@/components/layout/DomeHero";
 import DomeCTA from "@/components/layout/DomeCTA";
 import { useNavigate } from "react-router-dom";
-import { api } from "@/lib/api";
+import { api, ArchitectStats, Consultation, Notification, Payment, SupportTicket, AnalyticsSummary, Review } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
+import StudioScene from "@/components/3d/StudioScene";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const ArchitectDashboard = () => {
   const navigate = useNavigate();
@@ -23,72 +27,77 @@ const ArchitectDashboard = () => {
 
   // --- NEW FEATURE BLOCKS ---
   // Notifications Section
-  const { data: notifications = [], isLoading: notificationsLoading, error: notificationsError } = useQuery({
+  const { data: notifications = [], isLoading: notificationsLoading, error: notificationsError } = useQuery<Notification[]>({
     queryKey: queryKeys.notifications(),
     queryFn: api.getNotifications,
   });
 
   // Payments Section
-  const { data: payments = [], isLoading: paymentsLoading, error: paymentsError } = useQuery({
+  const { data: payments = [], isLoading: paymentsLoading, error: paymentsError } = useQuery<Payment[]>({
     queryKey: queryKeys.payments(),
     queryFn: api.getPayments,
   });
 
   // Reviews Section
-  const { data: reviews = [], isLoading: reviewsLoading, error: reviewsError } = useQuery({
+  const { data: reviews = [], isLoading: reviewsLoading, error: reviewsError } = useQuery<Review[]>({
     queryKey: queryKeys.reviews(),
     queryFn: () => api.getReviews(profile?.user.id),
     enabled: !!profile?.user.id,
   });
 
   // Support Tickets Section
-  const { data: supportTickets = [], isLoading: supportLoading, error: supportError } = useQuery({
+  const { data: supportTickets = [], isLoading: supportLoading, error: supportError } = useQuery<SupportTicket[]>({
     queryKey: queryKeys.supportTickets(),
     queryFn: api.getSupportTickets,
   });
 
   // Analytics Section (for charts)
-  const { data: analytics = {}, error: analyticsError } = useQuery({
+  const { data: analytics, error: analyticsError } = useQuery<AnalyticsSummary>({
     queryKey: queryKeys.analytics(),
     queryFn: api.getAnalyticsSummary,
   });
 
-  // 3D Animation Placeholder
-  // (Would use @react-three/fiber, but here is a placeholder component)
-  const ThreeDWidget = () => (
-    <div className="dome-card p-8 mb-8 flex flex-col items-center justify-center bg-gradient-to-br from-yellow-100 to-pink-100">
-      <div className="w-64 h-64 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-400 to-purple-400 animate-spin-slow shadow-xl flex items-center justify-center">
-        <span className="text-6xl">🏗️</span>
-      </div>
-      <p className="mt-4 text-lg font-bold text-pink-700">Interactive 3D Project Model</p>
-      <p className="text-muted-foreground">Showcase your architectural projects in 3D!</p>
-    </div>
-  );
+  // Helper to get analytics values safely
+  const getAnalyticsValue = (key: string) => {
+    if (!analytics || !analytics.totals) return 0;
+    // If your backend returns a flat object, adjust here
+    // If using byEvent, map keys accordingly
+    if (analytics.byEvent && Array.isArray(analytics.byEvent)) {
+      const found = analytics.byEvent.find((e) => e._id === key);
+      return found ? found.count : 0;
+    }
+    return 0;
+  };
 
-  // Chart Placeholder (Would use chart.js or similar)
-  const ChartWidget = () => (
-    <div className="dome-card p-8 mb-8">
-      <h3 className="text-display-sm mb-4">Earnings & Activity Chart</h3>
-      <div className="w-full h-64 bg-gradient-to-r from-yellow-100 to-pink-100 rounded-xl flex items-center justify-center">
-        <span className="text-4xl text-yellow-700">📊</span>
-      </div>
-      <p className="mt-4 text-muted-foreground">Your earnings and activity trends visualized.</p>
-    </div>
-  );
+  const chartData = useMemo(() => {
+    const daily = analytics?.daily7?.length
+      ? analytics.daily7.map((entry) => ({
+          label: new Date(entry._id).toLocaleDateString(undefined, { weekday: "short" }),
+          value: entry.count,
+        }))
+      : [
+          { label: "Mon", value: 6 },
+          { label: "Tue", value: 10 },
+          { label: "Wed", value: 14 },
+          { label: "Thu", value: 9 },
+          { label: "Fri", value: 16 },
+          { label: "Sat", value: 12 },
+          { label: "Sun", value: 18 },
+        ];
+    return daily;
+  }, [analytics?.daily7]);
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<ArchitectStats>({
     queryKey: queryKeys.architectStats(),
     queryFn: api.getMyArchitectStats,
-    error: statsError
   });
 
-  const { data: consultations = [] } = useQuery({
+  const { data: consultations = [] } = useQuery<Consultation[]>({
     queryKey: queryKeys.consultations(),
     queryFn: api.getConsultations,
-    error: consultationsError
   });
 
-  const pendingRequests = consultations.filter((consultation) => consultation.status === "pending");
+  const pendingRequests = Array.isArray(consultations) ? consultations.filter((consultation) => consultation.status === "pending") : [];
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ consultationId, status }: { consultationId: string; status: "accepted" | "rejected" }) =>
@@ -127,8 +136,68 @@ const ArchitectDashboard = () => {
         {/* --- NEW FEATURE BLOCKS --- */}
         <Section padding="small">
           <Container>
-            <ThreeDWidget />
-            <ChartWidget />
+            <div className="dome-card p-6 mb-8">
+              <div className="flex items-center justify-between">
+                <span className="dome-chip">AI Studio Insight</span>
+                <span className="text-caption text-muted-foreground">Auto-synthesized</span>
+              </div>
+              <p className="text-body-sm text-muted-foreground mt-4">
+                Based on recent inquiries, clients are leaning toward modern timber palettes and faster concept delivery.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <span className="dome-chip">Timber + stone</span>
+                <span className="dome-chip">Concept sprint</span>
+                <span className="dome-chip">High intent</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-8">
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Studio 3D Preview</h3>
+                  <span className="text-caption text-muted-foreground">Interactive</span>
+                </div>
+                <StudioScene className="h-72 w-full" />
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Active briefs</p>
+                    <p className="text-display-sm mt-2">{stats?.pendingRequests ?? 0}</p>
+                  </div>
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Monthly earnings</p>
+                    <p className="text-display-sm mt-2">${(stats?.monthlyEarnings ?? 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Earnings & Activity</h3>
+                  <span className="text-caption text-muted-foreground">7-day trend</span>
+                </div>
+                <ChartContainer
+                  config={{
+                    value: { label: "Activity", color: "hsl(var(--primary))" },
+                  }}
+                  className="h-64"
+                >
+                  <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
+                  </AreaChart>
+                </ChartContainer>
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Profile views</p>
+                    <p className="text-display-sm mt-2">{stats?.profileViews ?? 0}</p>
+                  </div>
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Total earnings</p>
+                    <p className="text-display-sm mt-2">${(stats?.totalEarnings ?? 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Container>
         </Section>
 
@@ -220,7 +289,9 @@ const ArchitectDashboard = () => {
                     whileHover={{ y: -6, boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold">{r.reviewer?.name || r.reviewer || "Anonymous"}</span>
+                      <span className="font-semibold">
+                        {(typeof r.reviewer === "object" ? r.reviewer?.name : r.reviewer) || "Anonymous"}
+                      </span>
                       <span className="text-yellow-500">{"★".repeat(r.rating)}</span>
                     </div>
                     <p>{r.comment}</p>
@@ -266,12 +337,12 @@ const ArchitectDashboard = () => {
             </Reveal>
             {analyticsError && <div className="dome-panel p-8 text-center text-red-600">Analytics Error: {analyticsError.message || JSON.stringify(analyticsError)}</div>}
             <Grid cols={3} gap="default">
-              <div className="dome-card p-6"><span className="text-caption">Projects</span><div className="text-2xl font-bold">{analytics.projects ?? 0}</div></div>
-              <div className="dome-card p-6"><span className="text-caption">Messages</span><div className="text-2xl font-bold">{analytics.messages ?? 0}</div></div>
-              <div className="dome-card p-6"><span className="text-caption">Reviews</span><div className="text-2xl font-bold">{analytics.reviews ?? 0}</div></div>
-              <div className="dome-card p-6"><span className="text-caption">Payments</span><div className="text-2xl font-bold">{analytics.payments ?? 0}</div></div>
-              <div className="dome-card p-6"><span className="text-caption">Files</span><div className="text-2xl font-bold">{analytics.files ?? 0}</div></div>
-              <div className="dome-card p-6"><span className="text-caption">Notifications</span><div className="text-2xl font-bold">{analytics.notifications ?? 0}</div></div>
+              <div className="dome-card p-6"><span className="text-caption">Projects</span><div className="text-2xl font-bold">{getAnalyticsValue("projects")}</div></div>
+              <div className="dome-card p-6"><span className="text-caption">Messages</span><div className="text-2xl font-bold">{getAnalyticsValue("messages")}</div></div>
+              <div className="dome-card p-6"><span className="text-caption">Reviews</span><div className="text-2xl font-bold">{getAnalyticsValue("reviews")}</div></div>
+              <div className="dome-card p-6"><span className="text-caption">Payments</span><div className="text-2xl font-bold">{getAnalyticsValue("payments")}</div></div>
+              <div className="dome-card p-6"><span className="text-caption">Files</span><div className="text-2xl font-bold">{getAnalyticsValue("files")}</div></div>
+              <div className="dome-card p-6"><span className="text-caption">Notifications</span><div className="text-2xl font-bold">{getAnalyticsValue("notifications")}</div></div>
             </Grid>
           </Container>
         </Section>

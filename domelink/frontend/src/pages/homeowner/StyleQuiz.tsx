@@ -5,7 +5,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Container, Section } from "@/components/layout/Layout";
 import PageTransition from "@/components/layout/PageTransition";
-import { api } from "@/lib/api";
+import { api, Architect } from "@/lib/api";
 
 const inspirationImages = [
   { url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800", tag: "modern" },
@@ -27,7 +27,7 @@ export default function StyleQuiz() {
   const [selected, setSelected] = useState<string[]>([]);
   const [step, setStep] = useState(0);
   const [showResults, setShowResults] = useState(false);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<Architect[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 

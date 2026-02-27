@@ -1,10 +1,13 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { Container, Section, Grid } from "@/components/layout/Layout";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PageTransition from "@/components/layout/PageTransition";
 import { api, type AnalyticsSummary } from "@/lib/api";
+import ProjectBrief3D from "@/components/3d/ProjectBrief3D";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 export default function DemoDashboard() {
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -31,6 +34,19 @@ export default function DemoDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  const activityData = useMemo(
+    () => [
+      { day: "Mon", value: stats.messages ?? 0 },
+      { day: "Tue", value: (stats.messages ?? 0) + 6 },
+      { day: "Wed", value: (stats.messages ?? 0) + 14 },
+      { day: "Thu", value: (stats.messages ?? 0) + 10 },
+      { day: "Fri", value: (stats.messages ?? 0) + 18 },
+      { day: "Sat", value: (stats.messages ?? 0) + 8 },
+      { day: "Sun", value: (stats.messages ?? 0) + 12 },
+    ],
+    [stats.messages],
+  );
+
   return (
     <PageTransition>
       <Header />
@@ -49,6 +65,35 @@ export default function DemoDashboard() {
             <div className="dome-card p-6"><span className="text-caption">Files</span><div className="text-2xl font-bold">{stats.files ?? 0}</div></div>
             <div className="dome-card p-6"><span className="text-caption">Notifications</span><div className="text-2xl font-bold">{stats.notifications ?? 0}</div></div>
           </Grid>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-8 mt-12">
+            <div className="dome-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-display-sm">Engagement Curve</h2>
+                <span className="text-caption text-muted-foreground">Demo</span>
+              </div>
+              <ChartContainer
+                config={{
+                  value: { label: "Messages", color: "hsl(var(--primary))" },
+                }}
+                className="h-56"
+              >
+                <AreaChart data={activityData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
+                </AreaChart>
+              </ChartContainer>
+            </div>
+            <div className="dome-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-display-sm">3D Concept Preview</h2>
+                <span className="text-caption text-muted-foreground">Interactive</span>
+              </div>
+              <ProjectBrief3D plotSize="50x70" style="modern" />
+            </div>
+          </div>
         </Container>
       </Section>
       <Footer />
