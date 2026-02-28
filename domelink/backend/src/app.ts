@@ -9,6 +9,8 @@ import { apiRouter } from "./routes/index.js";
 
 export const app = express();
 
+
+
 const allowedOrigins = new Set([
   env.FRONTEND_URL,
   "http://localhost:8080",
@@ -29,8 +31,19 @@ app.use(
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
-  }),
+  })
 );
+// Handle preflight OPTIONS requests globally to avoid 500 errors
+app.options("*", cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(apiRateLimiter);
