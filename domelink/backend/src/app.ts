@@ -26,21 +26,21 @@ app.use(
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.has(origin)) {
         callback(null, true);
-        return;
+      } else {
+        callback(null, false); // Block disallowed origins without throwing
       }
-      callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
-// Handle preflight OPTIONS requests globally to avoid 500 errors
+// Handle preflight OPTIONS requests globally
 app.options("*", cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.has(origin)) {
       callback(null, true);
-      return;
+    } else {
+      callback(null, false);
     }
-    callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
 }));
