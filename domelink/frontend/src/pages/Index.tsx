@@ -36,9 +36,6 @@ const Index = () => {
               <HeroScene />
             </Suspense>
           </div>
-          <div className="absolute right-6 md:right-12 top-28 md:top-24 z-20 w-[260px] md:w-[360px] lg:w-[420px] h-[260px] md:h-[360px] lg:h-[420px] pointer-events-none">
-            <HomeHeroModel className="h-full w-full rounded-[32px] border border-white/15 bg-white/5 shadow-[0_30px_80px_rgba(0,0,0,0.35)]" />
-          </div>
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 0.7, y: 0 }}

@@ -192,8 +192,8 @@ const Explore = () => {
                   </div>
                 </Reveal>
                 <StaggerContainer className="space-y-0">
-                  {recommendations.map((architect, index) => (
-                    <StaggerItem key={architect._id}>
+                  {recommendations.filter(a => a && a.slug).map((architect, index) => (
+                    <StaggerItem key={architect._id || index}>
                       <ArchitectRow
                         architect={architect}
                         index={index}
@@ -215,8 +215,8 @@ const Explore = () => {
                   </div>
                 </Reveal>
               )}
-              {filteredArchitects.map((architect, index) => (
-                <StaggerItem key={architect._id}>
+              {filteredArchitects.filter(a => a && a.slug).map((architect, index) => (
+                <StaggerItem key={architect._id || index}>
                   <ArchitectRow
                     architect={architect}
                     index={index}
@@ -272,7 +272,8 @@ interface ArchitectRowProps {
 }
 
 const ArchitectRow = ({ architect, index, savedArchitects = [], onSave, onUnsave }: ArchitectRowProps) => {
-  const isSaved = useMemo(() => savedArchitects.some((item) => item._id === architect._id), [savedArchitects, architect._id]);
+  const isSaved = useMemo(() => savedArchitects.filter(item => item && item._id).some((item) => item._id === architect._id), [savedArchitects, architect._id]);
+  if (!architect || !architect.slug) return null;
   return (
     <Link to={`/architect/${architect.slug}`}>
       <motion.article

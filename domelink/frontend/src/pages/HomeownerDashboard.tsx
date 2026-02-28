@@ -364,8 +364,8 @@ const HomeownerDashboard = () => {
                         </div>
                       </Reveal>
                     ))
-                  : savedArchitects.map((architect, index) => (
-                      <Reveal key={architect._id} delay={index * 0.1}>
+                  : savedArchitects.filter(a => a && a.slug).map((architect, index) => (
+                      <Reveal key={architect._id || index} delay={index * 0.1}>
                         <Link to={`/architect/${architect.slug}`}>
                           <div className="dome-card p-4 group">
                             <div className="image-zoom aspect-[4/3] mb-4 rounded-2xl overflow-hidden">
