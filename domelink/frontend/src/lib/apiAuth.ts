@@ -1,6 +1,7 @@
+
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 export async function loginAPI(role: "homeowner" | "architect", email: string, password: string) {
   const url = `${API_BASE}/auth/${role}/login`;
