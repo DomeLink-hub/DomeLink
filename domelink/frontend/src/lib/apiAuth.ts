@@ -4,7 +4,7 @@ import axios from "axios";
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 export async function loginAPI(role: "homeowner" | "architect", email: string, password: string) {
-  const url = `${API_BASE}/auth/${role}/login`;
+  const url = `${API_BASE}/auth/login`;
   const res = await axios.post(url, { email, password });
   if (!res.data.token || !res.data.user) throw new Error("Invalid login response");
   localStorage.setItem("domelink_token", res.data.token);
