@@ -1,19 +1,12 @@
-import { app } from "./app.js";
-import { connectDatabase } from "./config/db.js";
+import app from "./app.js"; 
+import http from "http";
 import { env } from "./config/env.js";
-import { createServer } from "http";
-import { setupSocket } from "./socket.js";
+import { initSocket } from "./socket.js";
 
-const start = async () => {
-  await connectDatabase();
-  const server = createServer(app);
-  setupSocket(server);
-  server.listen(env.PORT, () => {
-    console.log(`API running on http://localhost:${env.PORT}`);
-  });
-};
+const server = http.createServer(app);
+initSocket(server);
 
-start().catch((error) => {
-  console.error("Failed to start server", error);
-  process.exit(1);
+// THE FIX: Explicitly bind to 0.0.0.0 so Docker can route external traffic
+server.listen(Number(env.PORT), "0.0.0.0", () => {
+  console.log(`Server running on port ${env.PORT} and bound to 0.0.0.0`);
 });

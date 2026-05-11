@@ -1,43 +1,38 @@
-# Stage 1: Build Environment
+# STAGE 1: Builder
 FROM node:20-alpine AS builder
 
-# Set working directory
+WORKDIR /app
+COPY package*.json ./
+COPY prisma ./prisma/
+RUN npm install
+COPY . .
+RUN npx prisma generate
+RUN npm run build
+
+
+# STAGE 2: Production
+FROM node:20-alpine
+
+# PRISMA FIX: Add the edge/community and 3.16 repositories to find openssl 1.1
+RUN apk add --no-cache libssl1.1 --repository=http://dl-cdn.alpinelinux.org/alpine/v3.16/main
+
 WORKDIR /app
 
-# Copy package files
+# Copy package files and Prisma schema
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install all dependencies (including dev dependencies for building)
-RUN npm install
+# Install production dependencies only
+RUN npm install --omit=dev
 
-# Generate Prisma Client
+# Generate Prisma Client for the production environment
 RUN npx prisma generate
 
-# Copy the rest of the application code
-COPY . .
-
-# Build the TypeScript code
-RUN npm run build
-
-# Stage 2: Production Environment
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
-# Copy package files and install ONLY production dependencies
-COPY package*.json ./
-RUN npm install --only=production
-
-# Copy the generated Prisma client from the builder stage
-COPY --from=builder /app/node_modules/@prisma /app/node_modules/@prisma
-COPY --from=builder /app/node_modules/.prisma /app/node_modules/.prisma
-
-# Copy the compiled JavaScript code
+# Copy the compiled JavaScript from the Builder stage
 COPY --from=builder /app/dist ./dist
 
-# Expose the API port
+# Expose the port
 EXPOSE 5000
 
 # Start the application
-CMD ["node", "dist/server.js"]
+CMD ["npm", "start"]

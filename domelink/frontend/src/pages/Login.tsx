@@ -8,7 +8,7 @@ import DomeHero from "@/components/layout/DomeHero";
 import DomeCTA from "@/components/layout/DomeCTA";
 import { Container, Section } from "@/components/layout/Layout";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/context/AuthContext";
 
 const roleHome = (role: "homeowner" | "architect" | "admin") => {
   if (role === "architect") return "/architect/dashboard";

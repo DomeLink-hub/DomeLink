@@ -1,4 +1,43 @@
-{
-  "version": 3,
-  "sources": ["../../css-mediaquery/index.js", "../../matchmediaquery/index.js", "../../hyphenate-style-name/index.js", "../../shallow-equal/src/arrays.ts", "../../shallow-equal/src/objects.ts", "../../shallow-equal/src/index.ts", "../../react-responsive/src/mediaQuery.ts", "../../react-responsive/src/toQuery.ts", "../../react-responsive/src/Context.ts", "../../react-responsive/src/useMediaQuery.ts", "../../react-responsive/src/Component.ts"],
-  "sourcesContent": ["/*\nCopyright (c) 2014, Yahoo! Inc. All rights reserved.\nCopyrights licensed under the New BSD License.\nSee the accompanying LICENSE file for terms.\n*/\n\n'use strict';\n\nexports.match = matchQuery;\nexports.parse = parseQuery;\n\n// -----------------------------------------------------------------------------\n\nvar RE_MEDIA_QUERY     = /(?:(only|not)?\\s*([^\\s\\(\\)]+)(?:\\s*and)?\\s*)?(.+)?/i,\n   
+import jwt from "jsonwebtoken";
+import type { Request, Response, NextFunction } from "express";
+import prisma from "../config/prisma.js";
+
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    let token;
+    
+    if (req.headers.authorization?.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({ message: "Not authorized, no token" });
+    }
+
+    // MATCHES jwt.ts: Extracts { id: string } instead of the old { sub: string }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+
+    // Fetch user from Postgres using the id
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        role: true, 
+        avatar: true 
+      } // Exclude password hash
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Attach user to request
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error("Middleware Auth Error:", error);
+    return res.status(401).json({ message: "Not authorized, token failed" });
+  }
+};

@@ -1,47 +1,33 @@
-import { UserModel } from "../models/User.js";
-import { Request, Response, NextFunction } from "express";
-import { AppError } from "../utils/AppError.js";
-import { verifyJwt } from "../utils/jwt.js";
+import jwt from "jsonwebtoken";
+import type { Request, Response, NextFunction } from "express";
+import { PrismaClient } from "@prisma/client";
 
-export const requireAuth = async (req: Request, _res: Response, next: NextFunction) => {
-  const authHeader = req.headers["authorization"] as string | undefined;
-  if (!authHeader?.startsWith("Bearer ")) {
-    console.log("[AUTH] Missing or malformed Authorization header", req.headers);
-    return next(new AppError("Unauthorized", 401));
-  }
+const prisma = new PrismaClient();
 
-  const token = authHeader.replace("Bearer ", "").trim();
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const decoded = verifyJwt(token);
-    UserModel.findById(decoded.sub).select("tokenVersion role email status").then(user => {
-      if (!user || user.tokenVersion !== decoded.tokenVersion) {
-        console.log("[AUTH] Invalid tokenVersion or user not found", decoded);
-        return next(new AppError("Invalid token", 401));
-      }
-      if (user.status === "suspended") {
-        console.log("[AUTH] Suspended user", user.email);
-        return next(new AppError("Account suspended", 403));
-      }
-      req.auth = decoded;
-      console.log(`[AUTH] Authenticated user: ${user.email}, role: ${user.role}`);
-      next();
-    }).catch(err => {
-      console.log("[AUTH] JWT verification failed", err);
-      return next(new AppError("Invalid token", 401));
-    });
-  } catch (err) {
-    console.log("[AUTH] JWT verification failed", err);
-    return next(new AppError("Invalid token", 401));
-  }
-};
-
-export const requireRole = (roles: string[]) => {
-  return (req: Request, _res: Response, next: NextFunction) => {
-    if (!req.auth || !roles.includes(req.auth.role)) {
-      console.log(`[ROLE] Forbidden: user role ${req.auth?.role}, required: ${roles}`);
-      return next(new AppError("Forbidden", 403));
+    let token;
+    if (req.headers.authorization?.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
     }
-    console.log(`[ROLE] Role check passed: ${req.auth.role}`);
+
+    if (!token) {
+      return res.status(401).json({ message: "Not authorized, no token" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    req.user = user;
     next();
-  };
+  } catch (error) {
+    return res.status(401).json({ message: "Not authorized, token failed" });
+  }
 };

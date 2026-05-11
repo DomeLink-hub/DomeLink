@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { api, type ApiUser } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,15 +13,8 @@ interface AuthContextValue {
   signup: (role: "homeowner" | "architect", name: string, email: string, password: string) => Promise<void>;
 }
 
-export const AuthContext = createContext<AuthContextValue>({
-  user: null,
-  loading: true,
-  refresh: async () => {},
-  setUser: () => {},
-  logout: async () => {},
-  login: async () => {},
-  signup: async () => {},
-});
+// 1. Remove "export" here. Keep it internal to this file.
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
@@ -30,7 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refresh = useCallback(async () => {
     const token = localStorage.getItem("domelink_token");
-    if (!token) {
+    if (!token || token === "undefined") {
       setUser(null);
       setLoading(false);
       return;
@@ -50,18 +43,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(async () => {
     try {
       await api.logout();
-    } catch {
-      // ignore network/logout race errors and still clear local session
-    }
+    } catch { /* ignore */ }
     api.clearToken();
     setUser(null);
     queryClient.clear();
   }, [queryClient]);
 
-  // --- NEW: login and signup implementations ---
   const login = useCallback(
     async (role: "homeowner" | "architect", email: string, password: string) => {
-      // The backend expects role in the payload or as endpoint? Here, send as payload.
       const result = await api.login({ email, password });
       api.setToken(result.token);
       setUser(result.user);
@@ -77,7 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     },
     []
   );
-  // --- END NEW ---
 
   useEffect(() => {
     void refresh();
@@ -89,4 +77,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+// 2. Export this custom hook to access the context safely
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 };
