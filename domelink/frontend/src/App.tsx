@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,12 +13,12 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import RoleRoute from "@/components/auth/RoleRoute";
 import LoaderScene from "@/components/3d/LoaderScene";
 
+// ... [Keep all your lazy imports exactly the same] ...
 const ReviewSystem = lazy(() => import("./pages/architect/ReviewSystem"));
 const PortfolioBuilder = lazy(() => import("./pages/architect/PortfolioBuilder"));
 const ProjectBriefWizard = lazy(() => import("./pages/homeowner/ProjectBriefWizard"));
 const BudgetRealityChecker = lazy(() => import("./pages/homeowner/BudgetRealityChecker"));
 const StyleQuiz = lazy(() => import("./pages/homeowner/StyleQuiz"));
-
 const Index = lazy(() => import("./pages/Index"));
 const ChooseRole = lazy(() => import("./pages/ChooseRole"));
 const FindArchitects = lazy(() => import("./pages/FindArchitects"));
@@ -89,6 +88,7 @@ const AppShell = () => {
       <AnimatePresence mode="wait">
         <Suspense fallback={<LoaderScene />}>
           <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<Index />} />
             <Route path="/choose" element={<ChooseRole />} />
             <Route path="/find-architects" element={<FindArchitects />} />
@@ -104,155 +104,54 @@ const AppShell = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route
-              path="/homeowner/dashboard"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <HomeownerDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/client/dashboard"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <ClientDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/homeowner"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <HomeownerDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/homeowner/style-quiz"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <StyleQuiz />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/homeowner/budget-reality"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <BudgetRealityChecker />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/homeowner/consultations"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <ConsultationHistory />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/homeowner/messages"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <HomeownerMessages />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/homeowner/project-brief"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <HomeownerProjectBrief />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/homeowner/project-brief/wizard"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <ProjectBriefWizard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/homeowner/saved"
-              element={
-                <ProtectedRoute roles={["homeowner", "admin"]}>
-                  <SavedArchitects />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile/settings"
-              element={
-                <ProtectedRoute roles={["homeowner", "architect", "admin"]}>
-                  <ProfileSettings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/dashboard"
-              element={
-                <RoleRoute roles={["admin"]}>
-                  <AdminDashboard />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="/admin/analytics"
-              element={
-                <RoleRoute roles={["admin"]}>
-                  <AdminAnalytics />
-                </RoleRoute>
-              }
-            />
-            <Route path="/architect/intro" element={<ArchitectIntro />} />
-            <Route
-              path="/architect/dashboard"
-              element={
-                <ProtectedRoute roles={["architect", "admin"]}>
-                  <ArchitectDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/architect/portal"
-              element={
-                <ProtectedRoute roles={["architect", "admin"]}>
-                  <ArchitectPortal />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/architect/portfolio"
-              element={
-                <ProtectedRoute roles={["architect", "admin"]}>
-                  <ArchitectPortfolio />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/architect/team"
-              element={
-                <ProtectedRoute roles={["architect", "admin"]}>
-                  <ArchitectTeam />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/notifications" element={<ProtectedRoute roles={["homeowner", "architect", "admin"]}><Notifications /></ProtectedRoute>} />
-            <Route path="/reviews" element={<ProtectedRoute roles={["homeowner", "architect", "admin"]}><Reviews /></ProtectedRoute>} />
-            <Route path="/payments" element={<ProtectedRoute roles={["homeowner", "architect", "admin"]}><Payments /></ProtectedRoute>} />
-            <Route path="/files" element={<ProtectedRoute roles={["homeowner", "architect", "admin"]}><Files /></ProtectedRoute>} />
             <Route path="/blog" element={<Blog />} />
-            <Route path="/support" element={<ProtectedRoute roles={["homeowner", "architect", "admin"]}><Support /></ProtectedRoute>} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/demo-dashboard" element={<DemoDashboard />} />
+            <Route path="/architect/intro" element={<ArchitectIntro />} />
+
+            {/* General Protected Routes (Any logged in user) */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/profile/settings" element={<ProfileSettings />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/reviews" element={<Reviews />} />
+              <Route path="/payments" element={<Payments />} />
+              <Route path="/files" element={<Files />} />
+              <Route path="/support" element={<Support />} />
+            </Route>
+
+            {/* Homeowner (CLIENT) Routes */}
+            <Route element={<RoleRoute allowedRoles={["CLIENT", "ADMIN", "SUPERADMIN"]} />}>
+              <Route path="/homeowner/dashboard" element={<HomeownerDashboard />} />
+              <Route path="/client/dashboard" element={<ClientDashboard />} />
+              <Route path="/homeowner" element={<HomeownerDashboard />} />
+              <Route path="/homeowner/style-quiz" element={<StyleQuiz />} />
+              <Route path="/homeowner/budget-reality" element={<BudgetRealityChecker />} />
+              <Route path="/homeowner/consultations" element={<ConsultationHistory />} />
+              <Route path="/homeowner/messages" element={<HomeownerMessages />} />
+              <Route path="/homeowner/project-brief" element={<HomeownerProjectBrief />} />
+              <Route path="/homeowner/project-brief/wizard" element={<ProjectBriefWizard />} />
+              <Route path="/homeowner/saved" element={<SavedArchitects />} />
+            </Route>
+
+            {/* Architect Routes */}
+            <Route element={<RoleRoute allowedRoles={["ARCHITECT", "ADMIN", "SUPERADMIN"]} />}>
+              <Route path="/architect/dashboard" element={<ArchitectDashboard />} />
+              <Route path="/architect/portal" element={<ArchitectPortal />} />
+              <Route path="/architect/portfolio" element={<ArchitectPortfolio />} />
+              <Route path="/architect/team" element={<ArchitectTeam />} />
+            </Route>
+
+            {/* Admin Routes */}
+            <Route element={<RoleRoute allowedRoles={["ADMIN", "SUPERADMIN"]} />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/analytics" element={<AdminAnalytics />} />
+            </Route>
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </AnimatePresence>
+
       {/* Global Chatbot Toggle and Modal */}
       <>
         <button
@@ -266,7 +165,7 @@ const AppShell = () => {
           isOpen={chatOpen}
           onClose={() => setChatOpen(false)}
           architect={{
-            _id: "ai-bot",
+            id: "ai-bot", // PRISMA FIX: Changed from _id to id
             name: "Dome AI Assistant",
             specialty: "AI Chatbot",
             profileImage: "/placeholder.svg",

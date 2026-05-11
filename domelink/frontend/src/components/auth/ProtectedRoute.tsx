@@ -1,37 +1,27 @@
-import { Navigate, useLocation } from "react-router-dom";
-import type { ReactNode } from "react";
-import { useAuth } from "@/context/useAuthContext";
+// src/components/auth/ProtectedRoute.tsx
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
-interface ProtectedRouteProps {
-  children: ReactNode;
-  roles?: Array<"homeowner" | "architect" | "admin">;
-}
-
-const ProtectedRoute = ({ children, roles }: ProtectedRouteProps) => {
+const ProtectedRoute = () => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
+  // Wait for the AuthContext to verify the token
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <span className="text-body text-muted-foreground">Loading…</span>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
+  // If no user, kick to login and remember where they tried to go
   if (!user) {
-    const params = new URLSearchParams();
-    params.set("from", `${location.pathname}${location.search}`);
-    return <Navigate to={`/login?${params.toString()}`} replace />;
+    return <Navigate to={`/login?from=${encodeURIComponent(location.pathname)}`} replace />;
   }
 
-  if (roles && !roles.includes(user.role)) {
-    if (user.role === "architect") return <Navigate to="/architect/dashboard" replace />;
-    if (user.role === "homeowner") return <Navigate to="/homeowner/dashboard" replace />;
-    return <Navigate to="/admin/dashboard" replace />;
-  }
-
-  return <>{children}</>;
+  // If authorized, render the child routes
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

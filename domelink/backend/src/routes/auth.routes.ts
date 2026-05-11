@@ -1,14 +1,12 @@
-import { Router } from "express";
-import { login, logout, me, register } from "../controllers/auth.controller.js";
-import { requireAuth } from "../middleware/auth.js";
-import { authRateLimiter } from "../middleware/rateLimit.js";
+import { Router } from 'express';
+import { login, register, me, logout } from '../controllers/auth.controller.js';
+import { requireAuth } from '../middleware/auth.ts'; 
 
-export const authRouter = Router();
+const router = Router();
 
-authRouter.post("/register", authRateLimiter, register);
-authRouter.post("/login", authRateLimiter, login);
-authRouter.post("/logout", requireAuth, logout);
-authRouter.get("/me", requireAuth, me);
+router.post('/register', register);
+router.post('/login', login);
+router.post('/logout', requireAuth, logout);
+router.get('/me', requireAuth, me);
 
-// Dual-role endpoints
-
+export default router;

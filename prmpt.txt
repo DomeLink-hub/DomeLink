@@ -1,0 +1,7 @@
+I am creating a platform where i need authentication, chats and collaboration. So, I need you to imply this framework of features into the provided backend files and suggest me to add additional files if required. The project is called DomeLink. It is kind of a architecture - client interaction so help me out to create a backend for this. And, then we will proceed with the frontend. 
+
+
+Database: postgres already mentioned in the .env file, JWT Token too implement prishma schema for the databse design.
+
+
+Act like a senior developer and first think in terms of designing and planning 
