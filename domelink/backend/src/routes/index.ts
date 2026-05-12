@@ -10,6 +10,7 @@ import authRoutes from './auth.routes.js'; // Ensure the extension matches your 
 import architectRoutes from './architect.routes.js';
 import consultationRoutes from './consultation.routes.js';
 import chatRoutes from './chat.routes.js';
+import { userRouter } from './user.routes.js';
 // Add any other routes you need (e.g., import adminRoutes from './admin.routes.js')
 
 const router = Router();
@@ -32,6 +33,22 @@ router.use('/auth', authRoutes);
 router.use('/architects', architectRoutes);
 router.use('/consultations', consultationRoutes);
 router.use('/chat', chatRoutes);
+router.use('/users', userRouter)
+
+
+router.post('/analytics', (req: Request, res: Response) => {
+  // Just pretend we saved the analytics
+  res.status(200).json({ ok: true });
+});
+
+// 2. Silence the Homeowner Recommendations
+router.get('/recommendations/homeowner', (req: Request, res: Response) => {
+  // Return an empty array so the React UI doesn't crash
+  res.status(200).json({ 
+    source: "stub", 
+    recommendations: [] 
+  });
+});
 
 // ==========================================
 // 404 API Route Handler

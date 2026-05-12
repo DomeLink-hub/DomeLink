@@ -39,12 +39,20 @@ const ProfileSettings = () => {
   }, [user]);
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) => api.updateProfile(data), // Make sure this exists in your api.ts!
+    // 1. Change to updateMe
+    mutationFn: (data: any) => api.updateMe({
+      ...data,
+      // 2. Parse numbers so Prisma doesn't crash
+      startingPrice: data.startingPrice ? parseInt(data.startingPrice) : null,
+      teamSize: data.teamSize ? parseInt(data.teamSize) : null,
+    }), 
     onSuccess: () => {
       toast.success("Profile updated successfully!");
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      // 3. Keep the query key consistent with what fetches your user
+      queryClient.invalidateQueries(); 
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Save Error:", error);
       toast.error("Failed to update profile.");
     }
   });

@@ -13,8 +13,8 @@ interface AuthContextValue {
   signup: (role: "homeowner" | "architect", name: string, email: string, password: string) => Promise<void>;
 }
 
-// 1. Remove "export" here. Keep it internal to this file.
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+// 1. ADDED EXPORT BACK: This fixes the "doesn't provide an export" crash
+export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
@@ -60,7 +60,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signup = useCallback(
     async (role: "homeowner" | "architect", name: string, email: string, password: string) => {
-      const result = await api.register({ name, email, password, role });
+      // Strict frontend mapping to match Prisma Enums perfectly
+      const strictRole = role === "homeowner" ? "CLIENT" : "ARCHITECT";
+      
+      const result = await api.register({ 
+        name, 
+        email, 
+        password, 
+        role: strictRole 
+      });
+      
       api.setToken(result.token);
       setUser(result.user);
     },
@@ -79,7 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// 2. Export this custom hook to access the context safely
+// 2. Keep the custom hook for components that want to use it
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

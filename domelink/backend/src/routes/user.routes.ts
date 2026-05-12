@@ -1,17 +1,17 @@
 import { Router } from "express";
 import {
-  getProfile,
+  getMe,
   getSavedArchitects,
   saveArchitect,
   unsaveArchitect,
-  updateProfile,
+  updateMe,
 } from "../controllers/user.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { authenticate } from "../middleware/auth.js";
 
 export const userRouter = Router();
 
-userRouter.get("/me", requireAuth, getProfile);
-userRouter.patch("/me", requireAuth, updateProfile);
-userRouter.get("/saved", requireAuth, getSavedArchitects);
-userRouter.post("/saved/:architectId", requireAuth, saveArchitect);
-userRouter.delete("/saved/:architectId", requireAuth, unsaveArchitect);
+userRouter.get("/me", authenticate, getMe);
+userRouter.patch("/me", authenticate, updateMe);
+userRouter.get("/saved", authenticate, getSavedArchitects);
+userRouter.post("/saved/:architectId", authenticate, saveArchitect);
+userRouter.delete("/saved/:architectId", authenticate, unsaveArchitect);

@@ -1,5 +1,5 @@
 # STAGE 1: Builder
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 COPY package*.json ./
@@ -11,28 +11,21 @@ RUN npm run build
 
 
 # STAGE 2: Production
-FROM node:20-alpine
+FROM node:20-slim
 
-# PRISMA FIX: Add the edge/community and 3.16 repositories to find openssl 1.1
-RUN apk add --no-cache libssl1.1 --repository=http://dl-cdn.alpinelinux.org/alpine/v3.16/main
+# Install OpenSSL for Prisma
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy package files and Prisma schema
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install production dependencies only
 RUN npm install --omit=dev
-
-# Generate Prisma Client for the production environment
 RUN npx prisma generate
 
-# Copy the compiled JavaScript from the Builder stage
 COPY --from=builder /app/dist ./dist
 
-# Expose the port
 EXPOSE 5000
 
-# Start the application
 CMD ["npm", "start"]
