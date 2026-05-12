@@ -16,34 +16,46 @@ import { Heart } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Explore = () => {
-  const [minRating, setMinRating] = useState<number>(0);
-  const [minBudget, setMinBudget] = useState<number>(0);
-  const [maxBudget, setMaxBudget] = useState<number>(100000);
-  const [preferredStyle, setPreferredStyle] = useState<string>("");
-  const [location, setLocation] = useState<string>("");
-  const [plotSize, setPlotSize] = useState<string>("");
   const queryClient = useQueryClient();
   const track = useAnalytics();
 
+  // 1. The Live Input State (what the user sees in the text boxes)
+  const [inputs, setInputs] = useState({
+    minRating: 0,
+    minBudget: 0,
+    maxBudget: 100000,
+    preferredStyle: "",
+    location: "",
+    plotSize: "",
+  });
+
+  // 2. The Applied State (what actually triggers the API fetch)
+  const [appliedFilters, setAppliedFilters] = useState(inputs);
+
+  // 3. React Query now LISTENS ONLY to appliedFilters
   const { data: filteredArchitects = [], isLoading } = useQuery({
-    queryKey: queryKeys.architects({ minRating, minBudget, maxBudget }),
+    queryKey: queryKeys.architects({ 
+      minRating: appliedFilters.minRating, 
+      minBudget: appliedFilters.minBudget, 
+      maxBudget: appliedFilters.maxBudget 
+    }),
     queryFn: () =>
       api.getArchitects({
-        minRating: minRating || undefined,
-        minBudget: minBudget || undefined,
-        maxBudget: maxBudget || undefined,
+        minRating: appliedFilters.minRating || undefined,
+        minBudget: appliedFilters.minBudget || undefined,
+        maxBudget: appliedFilters.maxBudget || undefined,
       }),
   });
 
   const { data: recommendationsPayload } = useQuery({
-    queryKey: ["recommendations", minBudget, maxBudget, preferredStyle, location, plotSize],
+    queryKey: ["recommendations", appliedFilters.minBudget, appliedFilters.maxBudget, appliedFilters.preferredStyle, appliedFilters.location, appliedFilters.plotSize],
     queryFn: () =>
       api.getHomeownerRecommendations({
-        budgetMin: minBudget || undefined,
-        budgetMax: maxBudget || undefined,
-        style: preferredStyle || undefined,
-        location: location || undefined,
-        plotSize: plotSize || undefined,
+        budgetMin: appliedFilters.minBudget || undefined,
+        budgetMax: appliedFilters.maxBudget || undefined,
+        style: appliedFilters.preferredStyle || undefined,
+        location: appliedFilters.location || undefined,
+        plotSize: appliedFilters.plotSize || undefined,
       }),
   });
 
@@ -71,16 +83,36 @@ const Explore = () => {
     },
   });
 
+  // Analytics only fires when the user hits search
   useEffect(() => {
-    track("search_filter", {
-      minRating,
-      minBudget,
-      maxBudget,
-      preferredStyle,
-      location,
-      plotSize,
-    });
-  }, [minRating, minBudget, maxBudget, preferredStyle, location, plotSize, track]);
+    track("search_filter", appliedFilters);
+  }, [appliedFilters, track]);
+
+  // Handlers for Input and Buttons
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    setInputs(prev => ({
+      ...prev,
+      [name]: type === 'number' || type === 'range' ? Number(value) : value
+    }));
+  };
+
+  const handleSearch = () => {
+    setAppliedFilters(inputs); // This triggers the network request!
+  };
+
+  const handleClear = () => {
+    const defaultState = {
+      minRating: 0,
+      minBudget: 0,
+      maxBudget: 100000,
+      preferredStyle: "",
+      location: "",
+      plotSize: "",
+    };
+    setInputs(defaultState);
+    setAppliedFilters(defaultState); // Resets the UI and the Search
+  };
 
   return (
     <PageTransition>
@@ -99,19 +131,20 @@ const Explore = () => {
         <Section padding="none" className="pb-12">
           <Container>
             <Reveal delay={0.2}>
-              <div className="dome-flow pt-6 flex flex-wrap gap-8 items-center">
+              <div className="dome-flow pt-6 flex flex-wrap gap-8 items-end">
                 <FilterGroup label="Minimum Rating">
                   <input
                     type="range"
+                    name="minRating"
                     min="0"
                     max="5"
                     step="0.5"
-                    value={minRating}
-                    onChange={(e) => setMinRating(parseFloat(e.target.value))}
+                    value={inputs.minRating}
+                    onChange={handleInputChange}
                     className="w-32 accent-foreground"
                   />
                   <span className="text-body-sm text-muted-foreground ml-2">
-                    {minRating > 0 ? `${minRating}+` : "Any"}
+                    {inputs.minRating > 0 ? `${inputs.minRating}+` : "Any"}
                   </span>
                 </FilterGroup>
 
@@ -119,17 +152,19 @@ const Explore = () => {
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
+                      name="minBudget"
                       placeholder="Min"
-                      value={minBudget || ""}
-                      onChange={(e) => setMinBudget(parseInt(e.target.value) || 0)}
+                      value={inputs.minBudget || ""}
+                      onChange={handleInputChange}
                       className="w-28 dome-input"
                     />
                     <span className="text-muted-foreground">—</span>
                     <input
                       type="number"
+                      name="maxBudget"
                       placeholder="Max"
-                      value={maxBudget === 100000 ? "" : maxBudget}
-                      onChange={(e) => setMaxBudget(parseInt(e.target.value) || 100000)}
+                      value={inputs.maxBudget === 100000 ? "" : inputs.maxBudget}
+                      onChange={handleInputChange}
                       className="w-28 dome-input"
                     />
                   </div>
@@ -138,9 +173,10 @@ const Explore = () => {
                 <FilterGroup label="Preferred Style">
                   <input
                     type="text"
+                    name="preferredStyle"
                     placeholder="Minimal, Modern, Coastal"
-                    value={preferredStyle}
-                    onChange={(e) => setPreferredStyle(e.target.value)}
+                    value={inputs.preferredStyle}
+                    onChange={handleInputChange}
                     className="w-48 dome-input"
                   />
                 </FilterGroup>
@@ -148,38 +184,28 @@ const Explore = () => {
                 <FilterGroup label="Location">
                   <input
                     type="text"
+                    name="location"
                     placeholder="City, Country"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    value={inputs.location}
+                    onChange={handleInputChange}
                     className="w-48 dome-input"
                   />
                 </FilterGroup>
 
-                <FilterGroup label="Plot Size">
-                  <input
-                    type="text"
-                    placeholder="e.g. 400 m²"
-                    value={plotSize}
-                    onChange={(e) => setPlotSize(e.target.value)}
-                    className="w-32 dome-input"
-                  />
-                </FilterGroup>
-
-                <button
-                  onClick={() => {
-                    setMinRating(0);
-                    setMinBudget(0);
-                    setMaxBudget(100000);
-                  }}
-                  className="dome-button-outline"
-                >
-                  Clear Filters
-                </button>
+                <div className="flex items-center gap-4">
+                  <button onClick={handleSearch} className="dome-button">
+                    Apply Filters
+                  </button>
+                  <button onClick={handleClear} className="dome-button-outline">
+                    Clear
+                  </button>
+                </div>
               </div>
             </Reveal>
           </Container>
         </Section>
 
+        {/* Architect List */}
         {/* Architect List */}
         <Section padding="small">
           <Container>
@@ -228,20 +254,13 @@ const Explore = () => {
               ))}
             </StaggerContainer>
 
-            {filteredArchitects.length === 0 && (
+            {!isLoading && filteredArchitects.length === 0 && (
               <Reveal>
                 <div className="text-center py-24">
                   <p className="text-display-sm text-muted-foreground">
                     No architects match your criteria
                   </p>
-                  <button
-                    onClick={() => {
-                      setMinRating(0);
-                      setMinBudget(0);
-                      setMaxBudget(100000);
-                    }}
-                    className="mt-4 text-caption link-underline"
-                  >
+                  <button onClick={handleClear} className="mt-4 text-caption link-underline">
                     Clear all filters
                   </button>
                 </div>
@@ -284,9 +303,9 @@ const ArchitectRow = ({ architect, index, savedArchitects = [], onSave, onUnsave
         {/* Image */}
         <div className="lg:col-span-5 image-zoom aspect-[4/3] lg:aspect-[16/10]">
           <img
-            src={architect.heroImage}
+            src={architect.heroImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"}
             alt={architect.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover rounded-xl"
             loading="lazy"
           />
         </div>
@@ -299,12 +318,12 @@ const ArchitectRow = ({ architect, index, savedArchitects = [], onSave, onUnsave
                 {architect.name}
               </h2>
               <p className="text-body text-muted-foreground mt-1">
-                {architect.location}
+                {architect.location || "Location not set"}
               </p>
             </div>
             <div className="text-right">
               <span className="text-caption text-muted-foreground block">Rating</span>
-              <span className="text-display-sm">{architect.rating}</span>
+              <span className="text-display-sm">{architect.rating || "New"}</span>
             </div>
           </div>
 
@@ -327,24 +346,24 @@ const ArchitectRow = ({ architect, index, savedArchitects = [], onSave, onUnsave
             {isSaved ? "Saved" : "Save"}
           </button>
 
-          <p className="text-body text-muted-foreground mb-6 max-w-xl">
-            {architect.specialty}
+          <p className="text-body text-muted-foreground mb-6 max-w-xl line-clamp-2">
+            {architect.specialty || architect.about || "No details provided."}
           </p>
 
           <div className="flex items-center gap-8">
             <div>
               <span className="text-caption text-muted-foreground block">Starting From</span>
               <span className="text-body-lg font-medium">
-                ${architect.startingPrice.toLocaleString()}
+                ${(architect.startingPrice || 0).toLocaleString()}
               </span>
             </div>
             <div>
               <span className="text-caption text-muted-foreground block">Experience</span>
-              <span className="text-body">{architect.experience}</span>
+              <span className="text-body">{architect.experience || "N/A"}</span>
             </div>
             <div>
               <span className="text-caption text-muted-foreground block">Team</span>
-              <span className="text-body">{architect.teamSize} people</span>
+              <span className="text-body">{architect.teamSize || 1} people</span>
             </div>
           </div>
         </div>

@@ -11,35 +11,68 @@ export const getArchitects = asyncHandler(async (req: Request, res: Response) =>
   // Prisma query to find all architects
   const architects = await prisma.user.findMany({
     where: {
-      role: "ARCHITECT",
-      // Add more dynamic filters here based on your specific Prisma schema
-      // e.g., budget: { gte: Number(minBudget) }
+      role: "ARCHITECT"
+      // (Keep your other filter logic here for budget/rating)
     },
     select: {
       id: true,
       name: true,
       email: true,
       avatar: true,
-      // Select any other architect-specific fields like specialty, rating, etc.
-    },
+      slug: true,           // Add this!
+      location: true,       // Add this!
+      specialty: true,      // Add this!
+      startingPrice: true,  // Add this!
+      experience: true,     // Add this!
+      teamSize: true,       // Add this!
+      heroImage: true,      // Add this!
+      about: true,          // Add this!
+    }
   });
 
-  res.status(200).json(architects);
+  const formattedArchitects = architects.map(arch => ({
+    ...arch,
+    _id: arch.id // Map Postgres 'id' to React's expected '_id'
+  }));
+
+  res.status(200).json(formattedArchitects);
 });
 
-export const getArchitectBySlug = asyncHandler(async (req: Request, res: Response) => {
-  const { slug } = req.params; // Assuming you use 'id' as the slug for now, or add a slug field
-  
-  const architect = await prisma.user.findFirst({
+// Add this new function to fetch a single architect by their slug
+export const getArchitectBySlug = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+
+  const architect = await prisma.user.findUnique({
     where: { 
-      role: "ARCHITECT",
-      id: slug // Update this if you have an actual 'slug' field
+      slug: slug,
+      // role: "ARCHITECT" // Optional: ensures we only fetch architects
     },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatar: true,
+      slug: true,
+      location: true,
+      specialty: true,
+      startingPrice: true,
+      experience: true,
+      teamSize: true,
+      heroImage: true,
+      about: true
+    }
   });
 
   if (!architect) {
-    return res.status(404).json({ message: "Architect not found" });
+    res.status(404).json({ error: "Architect not found" });
+    return;
   }
 
-  res.status(200).json(architect);
+  // Format it for the frontend (mapping id to _id)
+  const formattedArchitect = {
+    ...architect,
+    _id: architect.id
+  };
+
+  res.status(200).json(formattedArchitect);
 });
