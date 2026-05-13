@@ -137,11 +137,11 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
 
     try {
       const consultationIdToUse = consultationId
-        ? consultationId
-        : (await api.createConsultation({
-            architectId: architect.id, // PRISMA FIX: Changed _id to id
-            message: "Hi, I would like to start a consultation.",
-          })).id; // PRISMA FIX: Changed _id to id
+  ? consultationId
+  : (await api.createConsultation({
+      architectId: architect.id,
+      message: "Hi, I would like to start a consultation.",
+    })).consultationId;
 
       setConsultationId(consultationIdToUse);
       setPaymentStatus("success");
@@ -206,7 +206,13 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
     }
 
     // Emit via Socket directly for instant UI update
-    socket?.emit("send_message", { consultationId, message: inputValue });
+    // socket?.emit("send_message", { consultationId, message: inputValue });
+    // sendMessageMutation.mutate(inputValue);
+    socket?.emit("send_message", { 
+      consultationId, 
+      message: inputValue,
+      userId: user?.id 
+    });
     
     setInputValue("");
   };

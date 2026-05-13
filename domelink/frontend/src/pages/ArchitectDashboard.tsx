@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
@@ -16,6 +16,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
 import StudioScene from "@/components/3d/StudioScene";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import ArchitectChatModal from "@/components/chat/ArchitectChatModal";
 
 const ArchitectDashboard = () => {
   const navigate = useNavigate();
@@ -98,6 +99,7 @@ const ArchitectDashboard = () => {
   });
 
   const pendingRequests = Array.isArray(consultations) ? consultations.filter((consultation) => consultation.status === "pending") : [];
+  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ consultationId, status }: { consultationId: string; status: "accepted" | "rejected" }) =>
@@ -380,19 +382,17 @@ const ArchitectDashboard = () => {
             </Grid>
           </Container>
         </Section>
-        {/* Incoming Requests */}
+        {/* Incoming & Active Requests */}
         <Section padding="small">
           <Container>
             <Reveal>
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-display-sm">Incoming Requests</h2>
-                <span className="text-caption text-muted-foreground">
-                  {pendingRequests.length} pending
-                </span>
+                <h2 className="text-display-sm">Consultation Requests</h2>
               </div>
             </Reveal>
             <StaggerContainer className="space-y-4">
-              {pendingRequests.map((request) => (
+              {/* NOTE: Make sure this array includes 'accepted' requests too! */}
+              {consultations.map((request) => (
                 <StaggerItem key={request._id}>
                   <div className="dome-card p-6 hover:border-foreground transition-colors duration-300">
                     <div className="flex items-start justify-between mb-4">
@@ -400,31 +400,48 @@ const ArchitectDashboard = () => {
                         <h3 className="text-body font-medium mb-1">{request.userId.name}</h3>
                         <p className="text-body-sm text-muted-foreground">{request.message}</p>
                       </div>
-                      <span className="text-caption text-muted-foreground">
-                        {new Date(request.createdAt).toLocaleDateString()}
+                      <span className="text-caption text-muted-foreground uppercase">
+                        {request.status} • {new Date(request.createdAt).toLocaleDateString()}
                       </span>
                     </div>
+                    
                     <div className="flex items-center justify-between">
                       <span className="text-body-sm text-muted-foreground">Budget: ${request.amount}</span>
+                      
                       <div className="flex gap-3">
-                        <motion.button
-                          className="dome-button-outline"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => updateStatusMutation.mutate({ consultationId: request._id, status: "rejected" })}
-                          disabled={updateStatusMutation.isPending}
-                        >
-                          Reject
-                        </motion.button>
-                        <motion.button
-                          className="dome-button"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => updateStatusMutation.mutate({ consultationId: request._id, status: "accepted" })}
-                          disabled={updateStatusMutation.isPending}
-                        >
-                          Accept
-                        </motion.button>
+                        {/* 🔴 THE STATUS CHECK MAGIC */}
+                        {request.status === "pending" ? (
+                          <>
+                            <motion.button
+                              className="dome-button-outline"
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => updateStatusMutation.mutate({ consultationId: request._id, status: "rejected" })}
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              Reject
+                            </motion.button>
+                            <motion.button
+                              className="dome-button"
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => updateStatusMutation.mutate({ consultationId: request._id, status: "accepted" })}
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              Accept
+                            </motion.button>
+                          </>
+                        ) : (
+                          // If it's accepted or active, show the message button!
+                          <motion.button
+                            className="dome-button"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setSelectedConsultation(request)}
+                          >
+                            Message Client
+                          </motion.button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -504,6 +521,11 @@ const ArchitectDashboard = () => {
         <DomeCTA />
       </main>
       <Footer />
+      <ArchitectChatModal 
+            isOpen={!!selectedConsultation} 
+            onClose={() => setSelectedConsultation(null)} 
+            consultation={selectedConsultation} 
+          />
     </PageTransition>
   );
 };

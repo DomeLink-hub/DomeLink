@@ -13,16 +13,18 @@ interface AuthContextValue {
   signup: (role: "homeowner" | "architect", name: string, email: string, password: string) => Promise<void>;
 }
 
-// 1. ADDED EXPORT BACK: This fixes the "doesn't provide an export" crash
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<ApiUser | null>(null);
+  
+  // Start loading as true so the app doesn't flash the "logged out" state before checking the token
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     const token = localStorage.getItem("domelink_token");
+    
     if (!token || token === "undefined") {
       setUser(null);
       setLoading(false);
@@ -30,9 +32,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const profile = await api.me();
+      // Fetch the user profile. 
+      // NOTE: If your api.ts file calls this `getMe()` instead of `me()`, change it here!
+      const profile = await api.me(); 
       setUser(profile.user);
-    } catch {
+    } catch (error) {
+      // THE FIX: Stop failing silently! Log the error so we can see what's wrong.
+      console.error("Session Refresh Failed. The token might be invalid or the backend rejected it:", error);
+      
       api.clearToken();
       setUser(null);
     } finally {
@@ -43,7 +50,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(async () => {
     try {
       await api.logout();
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error("Backend logout failed, clearing local state anyway.", error);
+    }
     api.clearToken();
     setUser(null);
     queryClient.clear();
@@ -88,7 +97,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// 2. Keep the custom hook for components that want to use it
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
