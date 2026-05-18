@@ -1,81 +1,183 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Container, Section } from "@/components/layout/Layout";
-import PageTransition from "@/components/layout/PageTransition";
 import DomeHero from "@/components/layout/DomeHero";
-import DomeCTA from "@/components/layout/DomeCTA";
 import { api } from "@/lib/api";
-import { queryKeys } from "@/lib/queryKeys";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const ProfileSettings = () => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data } = useQuery({
-    queryKey: queryKeys.profile(),
-    queryFn: api.me,
+  
+  // Local state for the form
+  const [formData, setFormData] = useState({
+    name: "",
+    location: "",
+    specialty: "",
+    startingPrice: "",
+    experience: "",
+    teamSize: "",
+    about: ""
   });
 
-  const [name, setName] = useState(data?.user.name || "");
-  const [avatar, setAvatar] = useState(data?.user.avatar || "");
+  // Pre-fill the form with existing user data
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || "",
+        location: user.location || "",
+        specialty: user.specialty || "",
+        startingPrice: user.startingPrice?.toString() || "",
+        experience: user.experience || "",
+        teamSize: user.teamSize?.toString() || "",
+        about: user.about || ""
+      });
+    }
+  }, [user]);
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { name?: string; avatar?: string; styleTags?: string[] }) => api.updateMe(payload),
+    // 1. Change to updateMe
+    mutationFn: (data: any) => api.updateMe({
+      ...data,
+      // 2. Parse numbers so Prisma doesn't crash
+      startingPrice: data.startingPrice ? parseInt(data.startingPrice) : null,
+      teamSize: data.teamSize ? parseInt(data.teamSize) : null,
+    }), 
     onSuccess: () => {
-      toast.success("Profile updated");
-      void queryClient.invalidateQueries({ queryKey: queryKeys.profile() });
+      toast.success("Profile updated successfully!");
+      // 3. Keep the query key consistent with what fetches your user
+      queryClient.invalidateQueries(); 
     },
-    onError: () => {
-      toast.error("Failed to update profile");
-    },
+    onError: (error) => {
+      console.error("Save Error:", error);
+      toast.error("Failed to update profile.");
+    }
   });
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate(formData);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  if (!user) return null;
+
   return (
-    <PageTransition>
+    <>
       <Header />
-      <main>
+      <main className="min-h-screen bg-background">
         <DomeHero
-          kicker="Account"
+          kicker="Settings"
           title="Profile Settings"
-          subtitle="Manage your profile details while preserving your DomeLink presence."
-          imageUrl="https://images.unsplash.com/photo-1494526585095-c41746248156?w=1920&q=80"
+          subtitle="Update your personal details and public profile."
           align="left"
-          className="pt-20"
+          className="pt-20 pb-10"
         />
-        <Section padding="small" className="pb-32">
+
+        <Section padding="small">
           <Container size="narrow">
-            <div className="dome-flow pt-6 space-y-6">
-              <div>
-                <label className="text-caption text-muted-foreground block mb-2">Name</label>
-                <input
-                  className="dome-input"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                />
+            <form onSubmit={handleSubmit} className="space-y-6 bg-background/50 p-8 rounded-2xl border border-border/40">
+              
+              {/* Universal Fields */}
+              <div className="space-y-4">
+                <h3 className="text-display-xs">Basic Info</h3>
+                <div>
+                  <label className="text-caption text-muted-foreground block mb-2">Full Name</label>
+                  <input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                    required
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-caption text-muted-foreground block mb-2">Avatar URL</label>
-                <input
-                  className="dome-input"
-                  value={avatar}
-                  onChange={(event) => setAvatar(event.target.value)}
-                />
+
+              {/* Architect Specific Fields */}
+              {user.role === "ARCHITECT" && (
+                <div className="space-y-4 pt-6 border-t border-border/40">
+                  <h3 className="text-display-xs">Public Architect Profile</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-caption text-muted-foreground block mb-2">Location</label>
+                      <input
+                        name="location"
+                        value={formData.location}
+                        onChange={handleChange}
+                        placeholder="e.g. New York, NY"
+                        className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-caption text-muted-foreground block mb-2">Specialty</label>
+                      <input
+                        name="specialty"
+                        value={formData.specialty}
+                        onChange={handleChange}
+                        placeholder="e.g. Modern Residential"
+                        className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-caption text-muted-foreground block mb-2">Starting Price ($)</label>
+                      <input
+                        name="startingPrice"
+                        type="number"
+                        value={formData.startingPrice}
+                        onChange={handleChange}
+                        placeholder="50000"
+                        className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-caption text-muted-foreground block mb-2">Team Size</label>
+                      <input
+                        name="teamSize"
+                        type="number"
+                        value={formData.teamSize}
+                        onChange={handleChange}
+                        placeholder="5"
+                        className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-caption text-muted-foreground block mb-2">About Your Studio</label>
+                    <textarea
+                      name="about"
+                      value={formData.about}
+                      onChange={handleChange}
+                      rows={4}
+                      className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-6">
+                <button 
+                  type="submit" 
+                  disabled={updateMutation.isPending}
+                  className="dome-button w-full justify-center"
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save Profile"}
+                </button>
               </div>
-              <button
-                className="dome-button"
-                onClick={() => updateMutation.mutate({ name, avatar })}
-                disabled={updateMutation.isPending}
-              >
-                {updateMutation.isPending ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
+
+            </form>
           </Container>
         </Section>
-        <DomeCTA />
       </main>
       <Footer />
-    </PageTransition>
+    </>
   );
 };
 

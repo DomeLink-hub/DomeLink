@@ -1,11 +1,17 @@
-import type { JwtPayload } from "../utils/jwt.js";
+// src/types/express.d.ts
+import { Role } from "@prisma/client";
 
 declare global {
   namespace Express {
     interface Request {
-      auth?: JwtPayload;
+      user?: {
+        id: string;
+        name: string;
+        email: string;
+        role: Role;
+        avatar: string | null;
+      };
     }
   }
 }
-
 export {};

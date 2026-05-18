@@ -1,15 +1,8 @@
 import { Router } from "express";
-import {
-	getChatMessages,
-	getGroupedChatMessages,
-	markChatAsRead,
-	postChatMessage,
-} from "../controllers/chat.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { getChatHistory } from "../controllers/chat.controller.js";
+import { authenticate } from "../middleware/auth.js";
 
-export const chatRouter = Router();
+const router = Router();
+router.get("/:consultationId", authenticate, getChatHistory);
 
-chatRouter.get("/:consultationId", requireAuth, getChatMessages);
-chatRouter.get("/:consultationId/grouped", requireAuth, getGroupedChatMessages);
-chatRouter.post("/:consultationId", requireAuth, postChatMessage);
-chatRouter.patch("/:consultationId/read", requireAuth, markChatAsRead);
+export default router;

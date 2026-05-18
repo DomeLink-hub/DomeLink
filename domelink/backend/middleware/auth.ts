@@ -1,26 +1,43 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import User, { IUser } from '../models/User';
+import jwt from "jsonwebtoken";
+import type { Request, Response, NextFunction } from "express";
+import prisma from "../config/prisma.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
-
-export interface AuthRequest extends Request {
-  user?: IUser;
-}
-
-export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  const token = authHeader.split(' ')[1];
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-    const user = await User.findById(decoded.id);
-    if (!user) return res.status(401).json({ message: 'User not found' });
+    let token;
+    
+    if (req.headers.authorization?.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({ message: "Not authorized, no token" });
+    }
+
+    // MATCHES jwt.ts: Extracts { id: string } instead of the old { sub: string }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+
+    // Fetch user from Postgres using the id
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        role: true, 
+        avatar: true 
+      } // Exclude password hash
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Attach user to request
     req.user = user;
     next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Invalid token' });
+  } catch (error) {
+    console.error("Middleware Auth Error:", error);
+    return res.status(401).json({ message: "Not authorized, token failed" });
   }
 };

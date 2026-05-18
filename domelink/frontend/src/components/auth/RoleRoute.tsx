@@ -1,28 +1,37 @@
-import { Navigate } from "react-router-dom";
-import type { ReactNode } from "react";
-import { useAuth } from "@/context/useAuthContext";
+// src/components/auth/RoleRoute.tsx
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface RoleRouteProps {
-  children: ReactNode;
-  roles: Array<"homeowner" | "architect" | "admin">;
+  // Update this array to match your exact Prisma roles
+  allowedRoles: Array<"CLIENT" | "ARCHITECT" | "ADMIN" | "SUPERADMIN">;
 }
 
-const RoleRoute = ({ children, roles }: RoleRouteProps) => {
+const RoleRoute = ({ allowedRoles }: RoleRouteProps) => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <span className="text-body text-muted-foreground">Loading…</span>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
-  if (!user || !roles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+  // Not logged in at all
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  // Logged in, but wrong role (e.g., Client trying to access Architect page)
+  if (!allowedRoles.includes(user.role as any)) {
+    // Safely eject them back to their own specific dashboard
+    const fallbackRoute = user.role === "ARCHITECT" ? "/architect/dashboard" : "/homeowner/dashboard";
+    return <Navigate to={fallbackRoute} replace />;
+  }
+
+  // Role verified, render the child routes
+  return <Outlet />;
 };
 
 export default RoleRoute;

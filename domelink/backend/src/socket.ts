@@ -1,68 +1,39 @@
-import { Server, type Socket } from "socket.io";
-import type { Server as HttpServer } from "http";
-import { env } from "./config/env.js";
+import { Server as SocketIOServer } from "socket.io";
+import type { Server } from "http";
 
-export let io: Server | null = null;
-const roomUsers = new Map<string, Set<string>>();
-
-interface TypingPayload {
-  consultationId: string;
-  userId: string;
-}
-
-interface JoinPayload {
-  consultationId: string;
-  userId: string;
-}
-
-const emitPresence = (consultationId: string) => {
-  if (!io) return;
-  const users = Array.from(roomUsers.get(consultationId) || []);
-  io.to(consultationId).emit("presence_update", { consultationId, users, count: users.length });
-};
-
-export const setupSocket = (server: HttpServer) => {
-  io = new Server(server, {
+export const initSocket = (server: Server) => {
+  const io = new SocketIOServer(server, {
     cors: {
-      origin: env.FRONTEND_URL,
-      credentials: true,
+      origin: "*", // Adjust this in production
+      methods: ["GET", "POST"]
     },
   });
 
-  io.on("connection", (socket: Socket) => {
-    socket.on("join", (payload: JoinPayload | string) => {
-      const consultationId = typeof payload === "string" ? payload : payload.consultationId;
-      const userId = typeof payload === "string" ? socket.id : payload.userId;
+  io.on("connection", (socket) => {
+    console.log(`Socket connected: ${socket.id}`);
 
+    // Join a specific consultation chat room
+    socket.on("join_chat", (consultationId: string) => {
       socket.join(consultationId);
-      socket.data.userId = userId;
-
-      if (!roomUsers.has(consultationId)) {
-        roomUsers.set(consultationId, new Set<string>());
-      }
-      roomUsers.get(consultationId)?.add(userId);
-      emitPresence(consultationId);
+      console.log(`Socket ${socket.id} joined room ${consultationId}`);
     });
 
-    socket.on("typing", ({ consultationId, userId }: TypingPayload) => {
-      socket.to(consultationId).emit("typing", { userId });
+    // Handle typing indicators
+    socket.on("typing", ({ consultationId }) => {
+      socket.to(consultationId).emit("typing");
     });
 
-    socket.on("stop_typing", ({ consultationId, userId }: TypingPayload) => {
-      socket.to(consultationId).emit("stop_typing", { userId });
+    socket.on("stop_typing", ({ consultationId }) => {
+      socket.to(consultationId).emit("stop_typing");
     });
 
-    socket.on("disconnecting", () => {
-      socket.rooms.forEach((room) => {
-        if (room === socket.id) return;
-        const users = roomUsers.get(room);
-        const userId = String(socket.data.userId || socket.id);
-        users?.delete(userId);
-        if (users && users.size === 0) {
-          roomUsers.delete(room);
-        }
-        emitPresence(room);
-      });
+    // Handle sending messages (bypassing DB for instant UI reflection if needed)
+    socket.on("send_message", (data) => {
+      io.to(data.consultationId).emit("receive_message", data);
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`Socket disconnected: ${socket.id}`);
     });
   });
 

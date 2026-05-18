@@ -1,9 +1,2 @@
-import { ApiUser } from "@/lib/api";
-import { AuthContext } from "@/context/AuthContext";
-import { useContext } from "react";
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-}
+export { useAuth } from "../context/AuthContext";
+export { useAuth as useAuthContext } from "../context/AuthContext";

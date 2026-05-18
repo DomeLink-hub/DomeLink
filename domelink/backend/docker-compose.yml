@@ -1,0 +1,12 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: domelink-api
+    restart: always
+    ports:
+      - "5000:5000"
+    # Looking for the .env file in the current directory
+    env_file:
+      - .env

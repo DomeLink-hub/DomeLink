@@ -1,73 +1,98 @@
 import type { Request, Response } from "express";
-import { z } from "zod";
-import { ArchitectModel } from "../models/Architect.js";
-import { ConsultationModel } from "../models/Consultation.js";
-import { SavedArchitectModel } from "../models/SavedArchitect.js";
-import { UserModel } from "../models/User.js";
-import { AppError } from "../utils/AppError.js";
+import { PrismaClient } from "@prisma/client";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { sanitizeUser } from "../utils/response.js";
+import { AppError } from "../utils/AppError.js";
 
-const updateProfileSchema = z.object({
-  name: z.string().min(2).optional(),
-  avatar: z.string().url().optional(),
-  styleTags: z.array(z.string()).optional(),
+const prisma = new PrismaClient();
+
+// ==========================================
+// 1. Get Current User Profile
+// ==========================================
+export const getMe = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    throw new AppError("Unauthorized - No user ID found in token", 401);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      avatar: true,
+      location: true,
+      specialty: true,
+      startingPrice: true,
+      experience: true,
+      teamSize: true,
+      heroImage: true,
+      about: true,
+      slug: true,
+    }
+  });
+
+  if (!user) {
+    throw new AppError("User not found in database", 404);
+  }
+
+  res.status(200).json({ 
+    user,
+    consultationCount: 0, 
+    earnings: 0           
+  });
 });
 
-export const getProfile = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.auth?.sub) throw new AppError("Unauthorized", 401);
+// ==========================================
+// 2. Update Current User Profile
+// ==========================================
+export const updateMe = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) throw new AppError("Unauthorized", 401);
 
-  const user = await UserModel.findById(req.auth.sub);
-  if (!user) throw new AppError("User not found", 404);
+  const updateData = { ...req.body };
 
-  const consultationCount = await ConsultationModel.countDocuments(
-    req.auth.role === "architect" ? { architectId: req.auth.sub } : { userId: req.auth.sub },
-  );
+  // The Magic Slug Generator for Architects!
+  if (req.user?.role === "ARCHITECT" && updateData.name) {
+    updateData.slug = updateData.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-') // Replaces spaces and special chars with hyphens
+      .replace(/(^-|-$)+/g, '');   // Trims hyphens from start/end
+  }
 
-  const earnings = req.auth.role === "architect" ? consultationCount * 49 : 0;
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: updateData,
+  });
 
-  res.status(200).json({ user: sanitizeUser(user), consultationCount, earnings });
+  res.status(200).json({ user: updatedUser });
 });
 
-export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.auth?.sub) throw new AppError("Unauthorized", 401);
-
-  const payload = updateProfileSchema.parse(req.body);
-  const user = await UserModel.findByIdAndUpdate(req.auth.sub, payload, { new: true });
-
-  if (!user) throw new AppError("User not found", 404);
-
-  res.status(200).json({ user: sanitizeUser(user) });
-});
-
+// ==========================================
+// 3. Get Saved Architects (Placeholder)
+// ==========================================
 export const getSavedArchitects = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.auth?.sub) throw new AppError("Unauthorized", 401);
-
-  const saved = await SavedArchitectModel.find({ userId: req.auth.sub }).populate("architectId");
-  const architects = saved.map((entry) => entry.architectId);
-
-  res.status(200).json(architects);
+  // Returning an empty array for now so the Explore page doesn't crash
+  // We will build out the Prisma database relation for this later
+  res.status(200).json([]);
 });
 
+// ==========================================
+// 4. Save an Architect (Placeholder)
+// ==========================================
 export const saveArchitect = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.auth?.sub) throw new AppError("Unauthorized", 401);
-
-  const architect = await ArchitectModel.findById(req.params.architectId);
-  if (!architect) throw new AppError("Architect not found", 404);
-
-  await SavedArchitectModel.updateOne(
-    { userId: req.auth.sub, architectId: architect._id },
-    { $setOnInsert: { userId: req.auth.sub, architectId: architect._id } },
-    { upsert: true },
-  );
-
-  res.status(200).json({ ok: true });
+  const { architectId } = req.params;
+  // TODO: Add Prisma logic to save this architect to the user's saved list
+  res.status(200).json({ ok: true, message: `Architect ${architectId} saved!` });
 });
 
+// ==========================================
+// 5. Unsave an Architect (Placeholder)
+// ==========================================
 export const unsaveArchitect = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.auth?.sub) throw new AppError("Unauthorized", 401);
-
-  await SavedArchitectModel.deleteOne({ userId: req.auth.sub, architectId: req.params.architectId });
-
-  res.status(200).json({ ok: true });
+  const { architectId } = req.params;
+  // TODO: Add Prisma logic to remove this architect from the user's saved list
+  res.status(200).json({ ok: true, message: `Architect ${architectId} unsaved!` });
 });

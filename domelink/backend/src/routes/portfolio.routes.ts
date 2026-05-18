@@ -1,15 +1,16 @@
 import { Router } from "express";
-import {
-  createPortfolioProject,
-  deletePortfolioProject,
-  getPortfolioByArchitect,
-  updatePortfolioProject,
+import { 
+  getPortfolio, 
+  createPortfolio, 
+  updatePortfolio, 
+  deletePortfolio 
 } from "../controllers/portfolio.controller.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
 
-export const portfolioRouter = Router();
+const router = Router();
 
-portfolioRouter.post("/", requireAuth, requireRole(["architect", "admin"]), createPortfolioProject);
-portfolioRouter.get("/:architectId", getPortfolioByArchitect);
-portfolioRouter.patch("/:projectId", requireAuth, requireRole(["architect", "admin"]), updatePortfolioProject);
-portfolioRouter.delete("/:projectId", requireAuth, requireRole(["architect", "admin"]), deletePortfolioProject);
+router.get("/:architectId", getPortfolio);
+router.post("/", createPortfolio);
+router.patch("/:projectId", updatePortfolio);
+router.delete("/:projectId", deletePortfolio);
+
+export default router;

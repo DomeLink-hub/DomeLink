@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  CLIENT
+  ARCHITECT
+  ADMIN
+  SUPERADMIN
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String   // Maps to password or passwordHash in your controller
+  name          String
+  role          Role     @default(CLIENT)
+  avatar        String?
+
+  // --- Architect Specific Fields ---
+  location      String?
+  specialty     String?
+  startingPrice Int?
+  experience    String?
+  teamSize      Int?
+  heroImage     String?
+  about         String?
+  slug          String?  @unique
+
+  // --- Relations ---
+  // A user can be a client in many consultations, or an architect in many consultations
+  clientConsultations    Consultation[] @relation("ClientConsultations")
+  architectConsultations Consultation[] @relation("ArchitectConsultations")
+  messagesSent           ChatMessage[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Consultation {
+  id          String   @id @default(uuid())
+  userId      String
+  architectId String
+  message     String?
+  projectType String?
+  status      String   @default("pending") // e.g., pending, active, completed
+  amount      Int      @default(0)
+
+  // --- Relations ---
+  user        User          @relation("ClientConsultations", fields: [userId], references: [id])
+  architect   User          @relation("ArchitectConsultations", fields: [architectId], references: [id])
+  messages    ChatMessage[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChatMessage {
+  id             String   @id @default(uuid())
+  consultationId String
+  senderId       String
+  message        String
+  
+  // Storing the Mongo-style array [{ userId, readAt }] directly as JSONB for performance
+  readBy         Json     @default("[]") 
+
+  // --- Relations ---
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  timestamp      DateTime @default(now()) 
+}

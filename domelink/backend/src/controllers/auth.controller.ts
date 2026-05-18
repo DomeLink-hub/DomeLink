@@ -1,90 +1,83 @@
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
-import { z } from "zod";
-import { UserModel } from "../models/User.js";
-import { AppError } from "../utils/AppError.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { signJwt } from "../utils/jwt.js";
-import { sanitizeUser } from "../utils/response.js";
+import { PrismaClient } from "@prisma/client";
+import jwt from "jsonwebtoken";
 
-const registerSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(8),
-  role: z.enum(["homeowner", "architect", "admin"]).default("homeowner"),
-  avatar: z.string().url().optional(),
-});
+const prisma = new PrismaClient();
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
+const generateToken = (id: string) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET as string, { expiresIn: "30d" });
+};
 
-export const register = asyncHandler(async (req: Request, res: Response) => {
-  const payload = registerSchema.parse(req.body);
+export const register = async (req: Request, res: Response) => {
+  try {
+    const { name, email, password, role } = req.body;
 
-  const exists = await UserModel.findOne({ email: payload.email });
-  if (exists) {
-    throw new AppError("User already exists", 409);
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return res.status(409).json({ message: "User already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        role: role ? role.toUpperCase() : "CLIENT",
+      },
+    });
+
+    const token = generateToken(user.id);
+    return res.status(201).json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    });
+  } catch (e) {
+    console.error("REGISTER ERROR:", e);
+    return res.status(500).json({ message: "Server error during registration" });
   }
+};
 
-  const passwordHash = await bcrypt.hash(payload.password, 10);
-  const user = await UserModel.create({
-    ...payload,
-    passwordHash,
-  });
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
 
-  const token = signJwt({
-    sub: String(user._id),
-    email: user.email,
-    role: user.role,
-    tokenVersion: user.tokenVersion,
-  });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
 
-  res.status(201).json({ token, user: sanitizeUser(user) });
-});
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-export const login = asyncHandler(async (req: Request, res: Response) => {
-  const payload = loginSchema.parse(req.body);
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-  const user = await UserModel.findOne({ email: payload.email }).select("+passwordHash");
-  if (!user) {
-    throw new AppError("Invalid credentials", 401);
+    const token = generateToken(user.id);
+    return res.status(200).json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    });
+  } catch (e) {
+    console.error("LOGIN ERROR:", e);
+    return res.status(500).json({ message: "Server error during login" });
   }
+};
 
-  const isMatch = await bcrypt.compare(payload.password, user.passwordHash);
-  if (!isMatch) {
-    throw new AppError("Invalid credentials", 401);
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    return res.status(200).json({ user, consultationCount: 0, earnings: 0 });
+  } catch (e) {
+    console.error("GET ME ERROR:", e);
+    return res.status(500).json({ message: "Server error" });
   }
+};
 
-  const token = signJwt({
-    sub: String(user._id),
-    email: user.email,
-    role: user.role,
-    tokenVersion: user.tokenVersion,
-  });
-
-  res.status(200).json({ token, user: sanitizeUser(user) });
-});
-
-export const me = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.auth?.sub) {
-    throw new AppError("Unauthorized", 401);
-  }
-
-  const user = await UserModel.findById(req.auth.sub);
-  if (!user) {
-    throw new AppError("User not found", 404);
-  }
-
-  res.status(200).json({ user: sanitizeUser(user) });
-});
-
-export const logout = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.auth?.sub) {
-    throw new AppError("Unauthorized", 401);
-  }
-
-  await UserModel.findByIdAndUpdate(req.auth.sub, { $inc: { tokenVersion: 1 } });
-  res.status(200).json({ ok: true });
-});
+export const logout = async (_req: Request, res: Response) => {
+  return res.status(200).json({ ok: true });
+};

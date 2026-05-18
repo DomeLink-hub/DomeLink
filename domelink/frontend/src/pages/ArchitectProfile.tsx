@@ -106,7 +106,7 @@ const ArchitectProfile = () => {
           className="absolute inset-0"
         >
           <img
-            src={architect.heroImage}
+            src={architect.heroImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1920&q=80"}
             alt={architect.name}
             className="w-full h-full object-cover"
           />
@@ -122,12 +122,12 @@ const ArchitectProfile = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
-              <span className="dome-kicker text-white/60">{architect.specialty}</span>
+              <span className="dome-kicker text-white/60">{architect.specialty || "Architect"}</span>
               <h1 className="text-display-xl text-white mb-4 dome-bracket">
                 {architect.name}
               </h1>
               <p className="text-body-lg text-white/80">
-                {architect.location}
+                {architect.location || "Location not set"}
               </p>
             </motion.div>
           </Container>
@@ -142,7 +142,7 @@ const ArchitectProfile = () => {
               <Reveal>
                 <span className="dome-kicker">About</span>
                 <p className="text-body-lg leading-relaxed">
-                  {architect.about}
+                  {architect.about || "This architect hasn't provided an about description yet."}
                 </p>
               </Reveal>
 
@@ -153,28 +153,28 @@ const ArchitectProfile = () => {
                       <span className="dome-node" />
                       <div>
                         <span className="text-caption text-muted-foreground block mb-2">Rating</span>
-                        <span className="text-display-md">{architect.rating}</span>
+                        <span className="text-display-md">{architect.rating || "New"}</span>
                       </div>
                     </div>
                     <div className="dome-flow-item">
                       <span className="dome-node" />
                       <div>
                         <span className="text-caption text-muted-foreground block mb-2">Starting Price</span>
-                        <span className="text-display-md">${architect.startingPrice.toLocaleString()}</span>
+                        <span className="text-display-md">${(architect.startingPrice || 0).toLocaleString()}</span>
                       </div>
                     </div>
                     <div className="dome-flow-item">
                       <span className="dome-node" />
                       <div>
                         <span className="text-caption text-muted-foreground block mb-2">Experience</span>
-                        <span className="text-body-lg">{architect.experience}</span>
+                        <span className="text-body-lg">{architect.experience || "N/A"}</span>
                       </div>
                     </div>
                     <div className="dome-flow-item">
                       <span className="dome-node" />
                       <div>
                         <span className="text-caption text-muted-foreground block mb-2">Team Size</span>
-                        <span className="text-body-lg">{architect.teamSize} people</span>
+                        <span className="text-body-lg">{architect.teamSize || 1} people</span>
                       </div>
                     </div>
                   </div>
@@ -194,9 +194,19 @@ const ArchitectProfile = () => {
               </div>
             </Reveal>
 
+            {/* Defensive check for empty/undefined projects */}
+            {(!architect.projects || architect.projects.length === 0) && (
+              <Reveal>
+                <div className="py-12">
+                  <p className="text-muted-foreground">This architect hasn't uploaded any projects yet.</p>
+                </div>
+              </Reveal>
+            )}
+
             <StaggerContainer className="space-y-24">
-              {architect.projects.map((project, index) => (
-                <StaggerItem key={project.id}>
+              {/* Fallback to [] guarantees .map won't crash */}
+              {(architect.projects || []).map((project: any, index: number) => (
+                <StaggerItem key={project.id || index}>
                   <article className={`grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center ${index % 2 === 1 ? "lg:flex-row-reverse" : ""}`}>
                     <TiltCard className={`image-zoom aspect-[4/3] ${index % 2 === 1 ? "lg:order-2" : ""}`}>
                       <img
@@ -228,7 +238,8 @@ const ArchitectProfile = () => {
         </Section>
 
         {/* Templates */}
-        {architect.templates.length > 0 && (
+        {/* Safe check for templates array length */}
+        {(architect.templates || []).length > 0 && (
           <Section>
             <Container>
               <Reveal>
@@ -239,7 +250,7 @@ const ArchitectProfile = () => {
               </Reveal>
 
               <DomeTimeline
-                items={architect.templates.map((template) => ({
+                items={(architect.templates || []).map((template: any) => ({
                   meta: `$${template.price.toLocaleString()}`,
                   title: template.name,
                   description: template.description,
@@ -270,7 +281,7 @@ const ArchitectProfile = () => {
                     Book a Consultation
                   </motion.button>
                   {hasApiToken &&
-                    (savedArchitects.some((item) => item._id === architect._id) ? (
+                    (savedArchitects.some((item: any) => item._id === architect._id) ? (
                       <motion.button
                         onClick={() => unsaveMutation.mutate()}
                         className="dome-button-outline border-background text-background hover:bg-background hover:text-foreground"
@@ -301,8 +312,8 @@ const ArchitectProfile = () => {
       <ChatModal
         isOpen={isChatModalOpen}
         onClose={() => setIsChatModalOpen(false)}
-        architect={architect}
-        consultationId={activeConsultationId}
+        architect={architect as any}
+        consultationId={activeConsultationId || undefined}
       />
       <ConsultationModal
         isOpen={isConsultationOpen}

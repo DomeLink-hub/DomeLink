@@ -231,8 +231,12 @@ export interface AdminArchitect {
 
 const API_BASE_URL = frontendEnv.VITE_API_BASE_URL;
 
-const getToken = () => localStorage.getItem("domelink_token");
-
+const getToken = () => {
+  const token = localStorage.getItem("domelink_token");
+  // Prevent sending the literal string "undefined" if a previous login errored out
+  if (token === "undefined" || token === "null") return null;
+  return token;
+};
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers = new Headers(options.headers);
@@ -254,16 +258,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    // Standardize error object
     const errorObj = {
       status: response.status,
       message: payload.error || payload.message || "Request failed",
       details: payload,
     };
-    // Handle 401: clear token and optionally trigger callback
-    if (response.status === 401) {
+
+    // HARDENED EJECTOR SEAT: 
+    // Only wipe the token if the primary auth verification fails.
+    // This prevents a random broken endpoint (like /api/notifications) from logging you out.
+    if (response.status === 401 && path === "/api/users/me") {
       api.clearToken();
-      // Optionally: trigger a global logout or callback here
     }
     throw errorObj;
   }
@@ -305,7 +310,7 @@ export const api = {
       method: "POST",
     });
   },
-  register(payload: { name: string; email: string; password: string; role: "homeowner" | "architect" }) {
+  register(payload: { name: string; email: string; password: string; role: string }) {
     return request<{ token: string; user: ApiUser }>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -314,7 +319,7 @@ export const api = {
   me() {
     return request<{ user: ApiUser; consultationCount: number; earnings: number }>("/api/users/me");
   },
-  updateMe(payload: { name?: string; avatar?: string; styleTags?: string[] }) {
+  updateMe(payload: any) {
     return request<{ user: ApiUser }>("/api/users/me", {
       method: "PATCH",
       body: JSON.stringify(payload),

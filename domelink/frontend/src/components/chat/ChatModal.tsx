@@ -5,7 +5,7 @@ import { io, type Socket } from "socket.io-client";
 import { api, type Architect, type ChatMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
-import { useAuth } from "@/context/useAuthContext";
+import { useAuth } from "@/hooks/useAuth"; // Fixed import path to match your App.tsx
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -19,17 +19,19 @@ type PaymentStatus = "idle" | "processing" | "success";
 const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsultationId }: ChatModalProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const isAiBot = architect._id === "ai-bot";
+  
+  // PRISMA FIX: Changed _id to id
+  const isAiBot = architect.id === "ai-bot";
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialConsultationId || isAiBot ? "success" : "idle");
   const [consultationId, setConsultationId] = useState<string | null>(initialConsultationId || null);
   const [inputValue, setInputValue] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<any[]>([]); // Relaxed type slightly for Prisma flexibility
   const [isTyping, setIsTyping] = useState(false);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const [presenceCount, setPresenceCount] = useState(1);
 
-  const chatPrice = 49; // Price per chat session
+  const chatPrice = 49; 
 
   const { data: persistedMessages = [] } = useQuery({
     queryKey: queryKeys.chat(consultationId || ""),
@@ -56,32 +58,40 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
 
     const socketClient = io(import.meta.env.VITE_API_BASE_URL, {
       transports: ["websocket"],
+      auth: {
+        token: localStorage.getItem("domelink_token") // Send token for the backend middleware
+      }
     });
 
-    socketClient.emit("join", { consultationId, userId: user?.id || "viewer" });
-    socketClient.on("message", (message: ChatMessage) => {
+    socketClient.emit("join_chat", consultationId); // Matches your socket.ts event name
+
+    socketClient.on("receive_message", (message: any) => {
       setMessages((prev) => {
-        const exists = prev.some((item) => item._id === message._id);
+        // PRISMA FIX: Changed _id to id
+        const exists = prev.some((item) => item.id === message.id);
         return exists ? prev : [...prev, message];
       });
       setTimeout(() => {
         endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 80);
     });
+
     socketClient.on("typing", () => setIsTyping(true));
     socketClient.on("stop_typing", () => setIsTyping(false));
     socketClient.on("presence_update", ({ count }: { count: number }) => {
       setPresenceCount(count);
     });
+
     socketClient.on("messages_read", ({ userId, messageIds }: { userId: string; messageIds: string[] }) => {
       setMessages((prev) =>
         prev.map((message) => {
-          if (!messageIds.includes(message._id)) return message;
-          const alreadyRead = message.readBy.some((entry) => entry.userId === userId);
+          // PRISMA FIX: Changed _id to id
+          if (!messageIds.includes(message.id)) return message;
+          const alreadyRead = message.readBy?.some((entry: any) => entry.userId === userId);
           if (alreadyRead) return message;
           return {
             ...message,
-            readBy: [...message.readBy, { userId, readAt: new Date().toISOString() }],
+            readBy: [...(message.readBy || []), { userId, readAt: new Date().toISOString() }],
           };
         }),
       );
@@ -98,7 +108,11 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
   useEffect(() => {
     if (!consultationId || !isOpen || paymentStatus !== "success" || isAiBot) return;
     if (messages.length === 0) return;
-    const hasUnread = messages.some((message) => message.senderId._id !== user?.id && !message.readBy.some((entry) => entry.userId === user?.id));
+    
+    // PRISMA FIX: Mapped senderId._id to sender.id
+    const hasUnread = messages.some((message) => 
+      message.sender?.id !== user?.id && !message.readBy?.some((entry: any) => entry.userId === user?.id)
+    );
     if (!hasUnread) return;
     markReadMutation.mutate();
   }, [consultationId, isOpen, messages, paymentStatus, user?.id, markReadMutation, isAiBot]);
@@ -123,11 +137,11 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
 
     try {
       const consultationIdToUse = consultationId
-        ? consultationId
-        : (await api.createConsultation({
-            architectId: architect._id,
-            message: "Hi, I would like to start a consultation.",
-          }))._id;
+  ? consultationId
+  : (await api.createConsultation({
+      architectId: architect.id,
+      message: "Hi, I would like to start a consultation.",
+    })).consultationId;
 
       setConsultationId(consultationIdToUse);
       setPaymentStatus("success");
@@ -157,23 +171,27 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
       const now = new Date().toISOString();
       const userId = user?.id || "guest";
       const userName = user?.name || "Guest";
-      const userMessage: ChatMessage = {
-        _id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      
+      const userMessage = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, // PRISMA FIX: Changed _id to id
         consultationId,
-        senderId: { _id: userId, name: userName, role: "homeowner" },
+        sender: { id: userId, name: userName, role: "CLIENT" }, // PRISMA FIX: senderId to sender, homeowner to CLIENT
         message: inputValue,
         timestamp: now,
         readBy: [],
       };
+      
       setMessages((prev) => [...prev, userMessage]);
       setInputValue("");
       setIsTyping(true);
+      
       const nextResponse = buildAiResponse(inputValue);
+      
       setTimeout(() => {
-        const botMessage: ChatMessage = {
-          _id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        const botMessage = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, // PRISMA FIX: Changed _id to id
           consultationId,
-          senderId: { _id: architect._id, name: architect.name, role: "architect", avatar: architect.profileImage },
+          sender: { id: architect.id, name: architect.name, role: "ARCHITECT", avatar: architect.profileImage }, // PRISMA FIX
           message: nextResponse,
           timestamp: new Date().toISOString(),
           readBy: [],
@@ -187,7 +205,15 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
       return;
     }
 
-    sendMessageMutation.mutate(inputValue);
+    // Emit via Socket directly for instant UI update
+    // socket?.emit("send_message", { consultationId, message: inputValue });
+    // sendMessageMutation.mutate(inputValue);
+    socket?.emit("send_message", { 
+      consultationId, 
+      message: inputValue,
+      userId: user?.id 
+    });
+    
     setInputValue("");
   };
 
@@ -195,22 +221,25 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
     if (!isOpen || !isAiBot) return;
     if (messages.length > 0) return;
     const now = new Date().toISOString();
-    const initialMessage: ChatMessage = {
-      _id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    
+    const initialMessage = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, // PRISMA FIX
       consultationId: "ai-session",
-      senderId: { _id: architect._id, name: architect.name, role: "architect", avatar: architect.profileImage },
+      sender: { id: architect.id, name: architect.name, role: "ARCHITECT", avatar: architect.profileImage }, // PRISMA FIX
       message: aiPrompt,
       timestamp: now,
       readBy: [],
     };
     setMessages([initialMessage]);
-  }, [aiPrompt, architect._id, architect.name, architect.profileImage, isAiBot, isOpen, messages.length]);
+  }, [aiPrompt, architect.id, architect.name, architect.profileImage, isAiBot, isOpen, messages.length]);
 
-  const groupedMessages = messages.reduce<Array<{ date: string; items: Array<ChatMessage & { compact: boolean; readLabel?: string }> }>>((acc, message, index) => {
+  const groupedMessages = messages.reduce<Array<{ date: string; items: Array<any & { compact: boolean; readLabel?: string }> }>>((acc, message, index) => {
     const date = new Date(message.timestamp).toLocaleDateString();
     const previous = messages[index - 1];
-    const compact = Boolean(previous && previous.senderId._id === message.senderId._id);
-    const readCountExcludingSender = message.readBy.filter((entry) => entry.userId !== message.senderId._id).length;
+    
+    // PRISMA FIX: Check sender.id instead of senderId._id
+    const compact = Boolean(previous && previous.sender?.id === message.sender?.id);
+    const readCountExcludingSender = message.readBy?.filter((entry: any) => entry.userId !== message.sender?.id).length || 0;
     const readLabel = readCountExcludingSender > 0 ? "Seen" : undefined;
 
     const lastGroup = acc[acc.length - 1];
@@ -236,7 +265,6 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -246,7 +274,6 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
             onClick={handleClose}
           />
 
-          {/* Modal */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -258,7 +285,7 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
             <div className="flex items-center justify-between p-6 border-b border-border">
               <div className="flex items-center gap-4">
                 <img
-                  src={architect.profileImage}
+                  src={architect.profileImage || architect.avatar}
                   alt={architect.name}
                   className="w-12 h-12 rounded-full object-cover"
                 />
@@ -344,24 +371,24 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
                       <div className="text-center text-xs text-muted-foreground">{group.date}</div>
                       {group.items.map((message) => (
                         <motion.div
-                          key={message._id}
+                          key={message.id} // PRISMA FIX
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className={`flex ${message.senderId.role === "architect" ? "justify-start" : "justify-end"}`}
+                          className={`flex ${message.sender?.id === architect.id ? "justify-start" : "justify-end"}`} // PRISMA FIX
                         >
                           <div
                             className={`max-w-[80%] p-4 relative ${
-                              message.senderId.role === "architect" ? "bg-secondary" : "bg-foreground text-background"
+                              message.sender?.id === architect.id ? "bg-secondary" : "bg-foreground text-background"
                             } ${message.compact ? "mt-1" : "mt-3"}`}
                           >
-                            {!message.compact ? <p className="text-xs opacity-70 mb-1">{message.senderId.name}</p> : null}
+                            {!message.compact ? <p className="text-xs opacity-70 mb-1">{message.sender?.name}</p> : null}
                             <p className="text-body-sm">{message.message}</p>
                             <span className="text-xs opacity-60 mt-2 block">
                               {new Date(message.timestamp).toLocaleTimeString([], {
                                 hour: "2-digit",
                                 minute: "2-digit",
                               })}
-                              {message.senderId._id === user?.id && message.readLabel ? (
+                              {message.sender?.id === user?.id && message.readLabel ? (
                                 <span className="ml-2 inline-block align-middle">
                                   <motion.span
                                     className="inline-block w-2 h-2 rounded-full bg-emerald-400"
@@ -416,11 +443,11 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
                     onFocus={() => socket?.emit("typing", { consultationId, userId: user?.id || "viewer" })}
                     onBlur={() => socket?.emit("stop_typing", { consultationId, userId: user?.id || "viewer" })}
                     placeholder="Type your message..."
-                    className="flex-1 px-4 py-3 bg-secondary text-body-sm focus:outline-none"
+                    className="flex-1 px-4 py-3 bg-secondary text-body-sm focus:outline-none rounded-md"
                   />
                   <motion.button
                     onClick={handleSendMessage}
-                    className="px-6 py-3 bg-foreground text-background text-caption"
+                    className="px-6 py-3 bg-foreground text-background text-caption rounded-md"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
