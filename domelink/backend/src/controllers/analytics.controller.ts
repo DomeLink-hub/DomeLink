@@ -26,9 +26,24 @@ export const trackEvent = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json(event);
 });
 
+import prisma from "../config/prisma.js";
+
 export const getAnalytics = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id || req.auth?.sub;
+  if (!userId) throw new AppError("Unauthorized", 401);
+
   const query = analyticsQuerySchema.parse(req.query);
-  const days = query.days ?? 30;
+
+  const subscription = await prisma.subscription.findUnique({ where: { userId } });
+  const tier = subscription?.tier || "FREE";
+
+  let maxDays = 7;
+  if (tier === "PRO") maxDays = 30;
+  if (tier === "STUDIO") maxDays = 90;
+
+  const requestedDays = query.days ?? maxDays;
+  const days = Math.min(requestedDays, maxDays);
+
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
   const events = await AnalyticsEventModel.find({ createdAt: { $gte: since } }).sort({ createdAt: -1 }).limit(300);

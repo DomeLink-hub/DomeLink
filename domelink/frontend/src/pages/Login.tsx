@@ -16,6 +16,14 @@ const roleHome = (role: "homeowner" | "architect" | "admin") => {
   return "/homeowner/dashboard";
 };
 
+const routeForUser = (user: { role: string; onboardingCompleted?: boolean }) => {
+  const isClient = user.role === "CLIENT" || user.role === "homeowner";
+  if (isClient && user.onboardingCompleted === false) return "/homeowner/onboarding";
+  if (user.role === "ARCHITECT" || user.role === "architect") return "/architect/dashboard";
+  if (user.role === "ADMIN" || user.role === "admin" || user.role === "SUPERADMIN") return "/admin/dashboard";
+  return roleHome("homeowner");
+};
+
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,12 +38,16 @@ const Login = () => {
     setIsSubmitting(true);
     setFormError(null);
     try {
-      await login(role, formData.email, formData.password);
+      const user = await login(role, formData.email, formData.password);
       toast.success("Welcome back!");
       const from = new URLSearchParams(location.search).get("from");
-      navigate(from || roleHome(role));
+      navigate(from || routeForUser(user));
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : "Unable to sign in");
+      const msg =
+        (err as any)?.message ||
+        (err instanceof Error ? err.message : null) ||
+        "Unable to sign in. Check your email and password.";
+      setFormError(msg);
     } finally {
       setIsSubmitting(false);
     }

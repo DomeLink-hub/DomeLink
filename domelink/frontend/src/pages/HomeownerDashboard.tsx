@@ -14,434 +14,371 @@ import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { Skeleton } from "@/components/ui/skeleton";
-import ProjectBrief3D from "@/components/3d/ProjectBrief3D";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import ArchitectDiscoveryCard from "@/components/discovery/ArchitectDiscoveryCard";
+import AvoraProjectCopilot from "@/components/intelligence/AvoraProjectCopilot";
+
+const formatINR = (n: number) =>
+  n >= 10_000_000 ? `₹${(n / 10_000_000).toFixed(1)}Cr` : `₹${(n / 100_000).toFixed(1)}L`;
 
 const HomeownerDashboard = () => {
   const track = useAnalytics();
-  const { data: profile } = useQuery({
-    queryKey: queryKeys.profile(),
-    queryFn: api.me,
-  });
-  const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
-    queryKey: ["notifications"],
-    queryFn: api.getNotifications,
-  });
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
-    queryKey: ["payments"],
-    queryFn: api.getPayments,
-  });
-  const { data: reviews = [], isLoading: reviewsLoading } = useQuery({
-    queryKey: ["reviews", profile?.user?.id],
-    queryFn: () => profile?.user?.id ? api.getReviews(profile.user.id) : Promise.resolve([]),
-    enabled: !!profile?.user?.id,
-  });
-  const { data: supportTickets = [], isLoading: supportLoading } = useQuery({
-    queryKey: ["support-tickets"],
-    queryFn: api.getSupportTickets,
-  });
+
+  const { data: profile } = useQuery({ queryKey: queryKeys.profile(), queryFn: api.me });
   const { data: analyticsSummary = { totals: 0, byEvent: [], daily30: [], daily7: [] } } = useQuery({
-    queryKey: ["analytics-summary"],
-    queryFn: api.getAnalyticsSummary,
+    queryKey: ["analytics-summary"], queryFn: api.getAnalyticsSummary,
   });
-  const analytics = {
-    projects: analyticsSummary.totals ?? 0,
-    messages: analyticsSummary.byEvent.find(ev => ev._id === "consultation_start")?.count ?? 0,
-    reviews: analyticsSummary.byEvent.find(ev => String(ev._id) === "review")?.count ?? 0,
-    payments: analyticsSummary.byEvent.find(ev => String(ev._id) === "payment")?.count ?? 0,
-    files: analyticsSummary.byEvent.find(ev => String(ev._id) === "file")?.count ?? 0,
-    notifications: analyticsSummary.byEvent.find(ev => String(ev._id) === "notification")?.count ?? 0,
-  };
+  const { data: consultations = [], isLoading: consultationsLoading } = useQuery({
+    queryKey: queryKeys.consultations(), queryFn: api.getConsultations,
+  });
+  const { data: savedArchitects = [], isLoading: savedLoading } = useQuery({
+    queryKey: queryKeys.savedArchitects(), queryFn: api.getSavedArchitects,
+  });
+  const { data: recommendationsPayload } = useQuery({
+    queryKey: ["recommendations-dashboard"], queryFn: () => api.getHomeownerRecommendations(),
+  });
+  const { data: avoraEstimates = [] } = useQuery({
+    queryKey: ["avora-estimates"], queryFn: api.getAvoraEstimates,
+  });
+  const { data: projects = [] } = useQuery({
+    queryKey: ["my-projects"], queryFn: api.getMyProjects,
+  });
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications"], queryFn: api.getNotifications,
+  });
+  const { data: payments = [] } = useQuery({
+    queryKey: ["payments"], queryFn: api.getPayments,
+  });
+
+  const recommendations = recommendationsPayload?.recommendations ?? [];
+  const savedIds = useMemo(() => new Set(savedArchitects.map(a => a._id)), [savedArchitects]);
+  const activeChats = consultations.filter(c => c.status !== "closed");
+  const onboarding = profile?.user;
+
   const chartData = useMemo(() => {
     if (analyticsSummary.daily7?.length) {
-      return analyticsSummary.daily7.map((entry) => ({
-        label: new Date(entry._id).toLocaleDateString(undefined, { weekday: "short" }),
-        value: entry.count,
+      return analyticsSummary.daily7.map(e => ({
+        label: new Date(e._id).toLocaleDateString(undefined, { weekday: "short" }),
+        value: e.count,
       }));
     }
     return [
-      { label: "Mon", value: 18 },
-      { label: "Tue", value: 24 },
-      { label: "Wed", value: 31 },
-      { label: "Thu", value: 28 },
-      { label: "Fri", value: 36 },
-      { label: "Sat", value: 30 },
+      { label: "Mon", value: 18 }, { label: "Tue", value: 24 },
+      { label: "Wed", value: 31 }, { label: "Thu", value: 28 },
+      { label: "Fri", value: 36 }, { label: "Sat", value: 30 },
       { label: "Sun", value: 40 },
     ];
   }, [analyticsSummary.daily7]);
 
-  const ThreeDWidget = () => (
-    <div className="dome-card p-6 mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-display-sm">Interactive 3D Home Model</h3>
-        <span className="text-caption text-muted-foreground">Live preview</span>
-      </div>
-      <ProjectBrief3D plotSize="48x72" style="modern" />
-      <p className="mt-4 text-body-sm text-muted-foreground">Rotate to explore massing and spatial intent.</p>
-    </div>
-  );
+  // Build copilot context from real data
+  const copilotContext = useMemo(() => {
+    const latestProject = projects[0];
+    const lastConsultation = consultations[0];
+    const daysSinceActivity = lastConsultation
+      ? Math.floor((Date.now() - new Date(lastConsultation.createdAt).getTime()) / 86_400_000)
+      : 30;
+    return {
+      projectTitle: latestProject?.title || onboarding?.projectType || "Residential Project",
+      status: latestProject?.status || "planning",
+      progress: latestProject?.progress ?? 0,
+      estimatedBudget: onboarding?.budgetMax ?? undefined,
+      estimatedTime: onboarding?.timeline ?? undefined,
+      milestones: latestProject?.milestones?.map(m => ({ title: m.title, status: m.status, dueDate: m.dueDate ?? undefined })) ?? [],
+      consultationCount: consultations.length,
+      lastActivityDaysAgo: daysSinceActivity,
+      architectureStyle: Array.isArray(onboarding?.preferredStyles) ? (onboarding.preferredStyles as string[])[0] : undefined,
+      complexity: avoraEstimates[0]?.report?.complexityScore ?? 5,
+    };
+  }, [projects, consultations, onboarding, avoraEstimates]);
 
-  const ChartWidget = () => (
-    <div className="dome-card p-6 mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-display-sm">Activity Pulse</h3>
-        <span className="text-caption text-muted-foreground">Last 7 days</span>
-      </div>
-      <ChartContainer
-        config={{
-          value: { label: "Engagement", color: "hsl(var(--primary))" },
-        }}
-        className="h-56"
-      >
-        <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" tickLine={false} axisLine={false} />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
-        </AreaChart>
-      </ChartContainer>
-      <p className="mt-4 text-body-sm text-muted-foreground">Momentum across briefs, chats, and saved architects.</p>
-    </div>
-  );
-  const { data: consultations = [], isLoading: consultationsLoading } = useQuery({
-    queryKey: queryKeys.consultations(),
-    queryFn: api.getConsultations,
-  });
-  const { data: savedArchitects = [], isLoading: savedLoading } = useQuery({
-    queryKey: queryKeys.savedArchitects(),
-    queryFn: api.getSavedArchitects,
-  });
-  const { data: recommendationsPayload } = useQuery({
-    queryKey: ["recommendations-dashboard"],
-    queryFn: () => api.getHomeownerRecommendations(),
-  });
-  const recommendations = recommendationsPayload?.recommendations ?? [];
-  const activeChats = consultations.filter((consultation) => consultation.status !== "closed");
+  const personalSummary = useMemo(() => [
+    { label: "Location",     value: onboarding?.city || "Not set",       note: `Architects popular in ${onboarding?.city || "your city"}` },
+    { label: "Project Type", value: onboarding?.projectType || "Not set", note: "Matched to your project category" },
+    {
+      label: "Style Profile",
+      value: Array.isArray(onboarding?.preferredStyles) && onboarding.preferredStyles.length
+        ? `${onboarding.preferredStyles.length} preference${onboarding.preferredStyles.length > 1 ? "s" : ""}`
+        : "Not set yet",
+      note: "Modern Minimal, Contemporary Indian, and more",
+    },
+  ], [onboarding]);
+
+  // Consolidated activity feed - add unique IDs to each item
+  const activityFeed = useMemo(() => {
+    const items = [
+      ...notifications.slice(0, 3).map((n, idx) => ({
+        id: `notification-${n.id || idx}`,
+        type: "notification" as const,
+        label: n.title || "Notification",
+        sub: n.body,
+        time: n.createdAt,
+      })),
+      ...payments.slice(0, 2).map((p, idx) => ({
+        id: `payment-${p.id || idx}`,
+        type: "payment" as const,
+        label: `Payment ₹${p.amount?.toLocaleString("en-IN")}`,
+        sub: p.status,
+        time: p.createdAt,
+      })),
+    ];
+    return items
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 5);
+  }, [notifications, payments]);
 
   return (
     <PageTransition>
       <Header />
       <main>
-        <div>
-          <DomeHero
-            kicker="Welcome back"
-            title={profile?.user?.name || "Homeowner"}
-            subtitle="Review your saved architects, active conversations, and ongoing projects."
-            imageUrl="https://images.unsplash.com/photo-1494526585095-c41746248156?w=1920&q=80"
-            align="left"
-            className="pt-20"
-          />
-          {/* --- NEW FEATURE BLOCKS --- */}
-          <Section padding="small">
-            <Container>
-              <div className="dome-card p-6 mb-8">
-                <div className="flex items-center justify-between">
-                  <span className="dome-chip">AI Insight</span>
-                  <span className="text-caption text-muted-foreground">Personalized</span>
+        <DomeHero
+          kicker="Welcome back"
+          title={profile?.user?.name || "Homeowner"}
+          subtitle={onboarding?.city
+            ? `A tailored view for your ${onboarding.city} project.`
+            : "Review your saved architects, active conversations, and ongoing projects."}
+          imageUrl="https://images.unsplash.com/photo-1494526585095-c41746248156?w=1920&q=80"
+          align="left"
+          className="pt-20"
+        />
+
+        {/* ── Intelligence layer ─────────────────────────────── */}
+        <Section padding="small">
+          <Container>
+
+            {/* Project summary cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {personalSummary.map(item => (
+                <div key={item.label} className="dome-card p-6">
+                  <div className="text-caption text-muted-foreground">{item.label}</div>
+                  <div className="text-xl font-medium mt-2">{item.value}</div>
+                  <p className="text-body-sm text-muted-foreground mt-2">{item.note}</p>
                 </div>
-                <p className="text-body-sm text-muted-foreground mt-4">
-                  Based on your activity, Dome AI recommends prioritizing modern studios with courtyard experience.
-                </p>
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <span className="dome-chip">Courtyard focus</span>
-                  <span className="dome-chip">Budget alignment</span>
-                  <span className="dome-chip">Fast response</span>
+              ))}
+            </div>
+
+            {/* Avora Copilot — project health */}
+            <div className="mb-6">
+              <AvoraProjectCopilot context={copilotContext} />
+            </div>
+
+            {/* Avora Estimates */}
+            <Reveal>
+              <div className="dome-card p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="dome-chip mb-2 inline-block">Avora Intelligence</span>
+                    <h3 className="text-display-sm">Feasibility Reports</h3>
+                  </div>
+                  <Link to="/homeowner/avora-estimate" className="dome-button px-4 py-2 text-xs">
+                    New Estimate
+                  </Link>
                 </div>
-              </div>
-              <ThreeDWidget />
-              <ChartWidget />
-              {/* Notifications */}
-              <Reveal>
-                <h2 className="text-display-sm mb-8">Notifications</h2>
-              </Reveal>
-              {notificationsLoading ? (
-                <div>Loading notifications...</div>
-              ) : notifications.length > 0 ? (
-                <Grid cols={2} gap="default">
-                  {notifications.map((n) => (
-                    <motion.div
-                      key={n._id}
-                      className="dome-card p-4"
-                      initial={{ opacity: 0, y: 24 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                      whileHover={{ y: -6, boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}
-                    >
-                      <h3 className="font-semibold">{n.title}</h3>
-                      <p>{n.body}</p>
-                      <span className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleDateString()}</span>
-                    </motion.div>
-                  ))}
-                </Grid>
-              ) : (
-                <div className="dome-panel p-8 text-center">No notifications yet.</div>
-              )}
-              {/* Payments */}
-              <Reveal>
-                <h2 className="text-display-sm mb-8">Payments</h2>
-              </Reveal>
-              {paymentsLoading ? (
-                <div>Loading payments...</div>
-              ) : payments.length > 0 ? (
-                <Grid cols={2} gap="default">
-                    {payments.map((p) => (
-                      <motion.div
-                        key={p._id}
-                        className="dome-card p-4"
-                        initial={{ opacity: 0, y: 24 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                        whileHover={{ y: -6, boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold">${p.amount}</span>
-                          <span className={`dome-chip ${p.status === "completed" ? "bg-green-200" : "bg-yellow-200"}`}>{p.status}</span>
-                          <span className="dome-chip">{p.method}</span>
-                          <span className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleString()}</span>
+                {avoraEstimates.length === 0 ? (
+                  <div className="dome-panel p-8 text-center">
+                    <p className="text-body text-muted-foreground mb-3">No estimates yet</p>
+                    <p className="text-body-sm text-muted-foreground mb-4">
+                      Run an Avora estimate to get AI-powered cost ranges, complexity scores, and architect recommendations.
+                    </p>
+                    <Link to="/homeowner/avora-estimate">
+                      <motion.button className="dome-button px-6 py-2" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        Start Avora Estimate
+                      </motion.button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {avoraEstimates.slice(0, 3).map(est => {
+                      const r = est.report;
+                      return (
+                        <div key={est.id} className="dome-panel p-4 flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-body-sm font-medium">{est.city} · {est.plotSize?.toLocaleString()} sq ft · {est.floors}F</p>
+                            <p className="text-caption text-muted-foreground mt-1">{est.architectureStyle || "Modern"} · {est.interiorTier || "Premium"}</p>
+                            {r && <p className="text-body-sm text-muted-foreground mt-1">{formatINR(r.costRange.min)} — {formatINR(r.costRange.max)} · {r.estimatedTimeline}</p>}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            {r && <span className="dome-chip">{r.budgetFeasibility}</span>}
+                            <p className="text-caption text-muted-foreground mt-2">{new Date(est.createdAt).toLocaleDateString()}</p>
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </Reveal>
+
+            {/* Activity Pulse chart */}
+            <Reveal delay={0.1}>
+              <div className="dome-card p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Activity Pulse</h3>
+                  <span className="text-caption text-muted-foreground">Last 7 days</span>
+                </div>
+                <ChartContainer config={{ value: { label: "Engagement", color: "hsl(var(--primary))" } }} className="h-48">
+                  <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.15} />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
+            </Reveal>
+
+            {/* Activity feed */}
+            {activityFeed.length > 0 && (
+              <Reveal delay={0.15}>
+                <div className="dome-card p-6 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="dome-kicker">Recent Activity</span>
+                    <span className="text-caption text-muted-foreground">Last 5 items</span>
+                  </div>
+                  <div className="space-y-3">
+                    {activityFeed.map((item) => (
+                      <motion.div key={item.id} className="dome-panel p-3 flex items-start justify-between gap-4"
+                        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.random() * 0.3, ease: [0.16, 1, 0.3, 1] }}>
+                        <div className="flex items-start gap-3">
+                          <span className="dome-chip text-xs mt-0.5">{item.type}</span>
+                          <div>
+                            <p className="text-body-sm font-medium">{item.label}</p>
+                            {item.sub && <p className="text-caption text-muted-foreground mt-0.5">{item.sub}</p>}
+                          </div>
+                        </div>
+                        <span className="text-caption text-muted-foreground whitespace-nowrap">
+                          {new Date(item.time).toLocaleDateString()}
+                        </span>
                       </motion.div>
                     ))}
-                </Grid>
-              ) : (
-                <div className="dome-panel p-8 text-center">No payments found.</div>
-              )}
-              {/* Reviews */}
-              <Reveal>
-                <h2 className="text-display-sm mb-8">Reviews</h2>
+                  </div>
+                </div>
               </Reveal>
-              {reviewsLoading ? (
-                <div>Loading reviews...</div>
-              ) : reviews.length > 0 ? (
-                <Grid cols={2} gap="default">
-                  {reviews.map((r, idx) => (
-                    <motion.div
-                      key={r._id || idx}
-                      className="dome-card p-4"
-                      initial={{ opacity: 0, y: 24 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                      whileHover={{ y: -6, boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-semibold">{r.reviewer?.name || r.reviewer || "Anonymous"}</span>
-                        <span className="text-yellow-500">{"★".repeat(r.rating)}</span>
+            )}
+
+          </Container>
+        </Section>
+
+        {/* ── Active Conversations ───────────────────────────── */}
+        <Section padding="small">
+          <Container>
+            <Reveal>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-display-sm">Active Conversations</h2>
+                <div className="flex gap-4">
+                  <Link to="/homeowner/messages" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">Open messages</Link>
+                  <Link to="/homeowner/consultations" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">View history</Link>
+                  <Link to="/explore" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">Find architects</Link>
+                </div>
+              </div>
+            </Reveal>
+            {consultationsLoading ? (
+              <div className="space-y-4">
+                {[1, 2].map(i => (
+                  <div key={`consultation-skeleton-${i}`} className="dome-card p-6 flex items-center gap-6">
+                    <Skeleton className="w-16 h-16 rounded-full flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-1/3" />
+                      <Skeleton className="h-4 w-2/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : activeChats.length > 0 ? (
+              <StaggerContainer className="space-y-4">
+                {activeChats.map(chat => (
+                  <StaggerItem key={chat._id || chat.id}>
+                    <Link to={`/architect/${chat.architect?.slug || chat.architectId}`}>
+                      <div className="dome-card p-6 hover:border-foreground transition-colors duration-300 flex items-center gap-6">
+                        <img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80"
+                          alt={chat.architect?.name || "Architect"} className="w-16 h-16 rounded-full object-cover" />
+                        <div className="flex-1">
+                          <h3 className="text-body font-medium">{chat.architect?.name || "Architect"}</h3>
+                          <p className="text-body-sm text-muted-foreground">{chat.message}</p>
+                        </div>
+                        <span className="text-caption text-muted-foreground">{new Date(chat.createdAt).toLocaleDateString()}</span>
                       </div>
-                      <p>{r.comment}</p>
-                    </motion.div>
-                  ))}
-                </Grid>
-              ) : (
-                <div className="dome-panel p-8 text-center">No reviews yet.</div>
-              )}
-              {/* Support Tickets */}
-              <Reveal>
-                <h2 className="text-display-sm mb-8">Support Tickets</h2>
-              </Reveal>
-              {supportLoading ? (
-                <div>Loading support tickets...</div>
-              ) : supportTickets.length > 0 ? (
-                <Grid cols={2} gap="default">
-                  {supportTickets.map((t) => (
-                    <motion.div
-                      key={t._id}
-                      className="dome-card p-4"
-                      initial={{ opacity: 0, y: 24 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                      whileHover={{ y: -6, boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}
-                    >
-                      <span className="font-semibold">{t.subject}</span>
-                      <span className={`dome-chip ${t.status === "open" ? "bg-green-200" : "bg-yellow-200"}`}>{t.status}</span>
-                      <span className="text-xs text-muted-foreground">{new Date(t.createdAt).toLocaleString()}</span>
-                    </motion.div>
-                  ))}
-                </Grid>
-              ) : (
-                <div className="dome-panel p-8 text-center">No support tickets found.</div>
-              )}
-              {/* Analytics */}
-              <Reveal>
-                <h2 className="text-display-sm mb-8">Analytics</h2>
-              </Reveal>
-              <Grid cols={3} gap="default">
-                <div className="dome-card p-6"><span className="text-caption">Projects</span><div className="text-2xl font-bold">{analytics.projects ?? 0}</div></div>
-                <div className="dome-card p-6"><span className="text-caption">Messages</span><div className="text-2xl font-bold">{analytics.messages ?? 0}</div></div>
-                <div className="dome-card p-6"><span className="text-caption">Reviews</span><div className="text-2xl font-bold">{analytics.reviews ?? 0}</div></div>
-                <div className="dome-card p-6"><span className="text-caption">Payments</span><div className="text-2xl font-bold">{analytics.payments ?? 0}</div></div>
-                <div className="dome-card p-6"><span className="text-caption">Files</span><div className="text-2xl font-bold">{analytics.files ?? 0}</div></div>
-                <div className="dome-card p-6"><span className="text-caption">Notifications</span><div className="text-2xl font-bold">{analytics.notifications ?? 0}</div></div>
-              </Grid>
-            </Container>
-          </Section>
-
-          {/* Active Chats */}
-          <Section padding="small">
-            <Container>
-              <Reveal>
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-display-sm">Active Conversations</h2>
-                  <div className="flex gap-4">
-                    <Link to="/homeowner/messages" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">
-                      Open messages
                     </Link>
-                    <Link to="/homeowner/consultations" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">
-                      View history
-                    </Link>
-                    <Link to="/explore" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">
-                      Find more architects
-                    </Link>
-                  </div>
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
+            ) : (
+              <Reveal>
+                <div className="dome-panel p-12 text-center">
+                  <p className="text-body text-muted-foreground mb-4">No active conversations</p>
+                  <Link to="/explore" className="text-caption link-underline">Find an architect</Link>
                 </div>
               </Reveal>
-              {consultationsLoading ? (
-                <div className="space-y-4">
-                  <DashboardCardSkeleton />
-                  <DashboardCardSkeleton />
-                </div>
-              ) : activeChats.length > 0 ? (
-                <StaggerContainer className="space-y-4">
-                  {activeChats.map((chat) => (
-                    <StaggerItem key={chat._id}>
-                      <Link to={`/architect/${chat.architectId.slug}`}>
-                        <div className="dome-card p-6 hover:border-foreground transition-colors duration-300 flex items-center gap-6">
-                          <img
-                            src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80"
-                            alt={chat.architectId.name}
-                            className="w-16 h-16 rounded-full object-cover"
-                          />
-                          <div className="flex-1">
-                            <h3 className="text-body font-medium">{chat.architectId.name}</h3>
-                            <p className="text-body-sm text-muted-foreground">{chat.message}</p>
-                          </div>
-                          <span className="text-caption text-muted-foreground">
-                            {new Date(chat.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </Link>
-                    </StaggerItem>
-                  ))}
-                </StaggerContainer>
-              ) : (
-                <Reveal>
-                  <div className="dome-panel p-12 text-center">
-                    <p className="text-body text-muted-foreground mb-4">No active conversations</p>
-                    <Link to="/explore" className="text-caption link-underline">
-                      Find an architect
-                    </Link>
-                  </div>
-                </Reveal>
-              )}
-            </Container>
-          </Section>
+            )}
+          </Container>
+        </Section>
 
-          {/* Saved Architects */}
-          <Section padding="small" className="pb-32">
-            <Container>
-              <Reveal>
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-display-sm">Saved Architects</h2>
-                  <div className="flex gap-4">
-                    <Link to="/homeowner/project-brief" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">
-                      Project brief
-                    </Link>
-                    <Link to="/homeowner/saved" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">
-                      View all saved
-                    </Link>
-                    <Link to="/profile/settings" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">
-                      Profile settings
-                    </Link>
-                  </div>
+        {/* ── Saved Architects ───────────────────────────────── */}
+        <Section padding="small" className="pb-16">
+          <Container>
+            <Reveal>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-display-sm">Saved Architects</h2>
+                <div className="flex gap-4">
+                  <Link to="/homeowner/project-brief" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">Project brief</Link>
+                  <Link to="/homeowner/saved" className="text-caption text-muted-foreground hover:text-foreground transition-colors link-underline">View all saved</Link>
                 </div>
-              </Reveal>
-              <Grid cols={3} gap="default">
-                {savedLoading
-                  ? Array.from({ length: 3 }).map((_, index) => (
-                      <Reveal key={`saved-skeleton-${index}`} delay={index * 0.1}>
-                        <div className="dome-card p-4 group">
-                          <Skeleton className="aspect-[4/3] mb-4 rounded-2xl" />
-                          <Skeleton className="h-5 w-2/3 mb-2" />
-                          <Skeleton className="h-4 w-1/2" />
-                        </div>
-                      </Reveal>
-                    ))
-                  : savedArchitects.filter(a => a && a.slug).map((architect, index) => (
-                      <Reveal key={architect._id || index} delay={index * 0.1}>
-                        <Link to={`/architect/${architect.slug}`}>
-                          <div className="dome-card p-4 group">
-                            <div className="image-zoom aspect-[4/3] mb-4 rounded-2xl overflow-hidden">
-                              <img
-                                src={architect.heroImage}
-                                alt={architect.name}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            </div>
-                            <h3 className="text-body font-medium group-hover:text-muted-foreground transition-colors">
-                              {architect.name}
-                            </h3>
-                            <p className="text-body-sm text-muted-foreground">{architect.specialty}</p>
-                          </div>
-                        </Link>
-                      </Reveal>
-                    ))}
-              </Grid>
-            </Container>
-          </Section>
-
-          {recommendations.length > 0 && (
-            <Section padding="small" className="pb-32">
-              <Container>
-                <Reveal>
-                  <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-display-sm">Recommended for you</h2>
-                    <span className="text-caption text-muted-foreground">Based on your activity</span>
-                  </div>
-                </Reveal>
-                <Grid cols={3} gap="default">
-                  {recommendations.map((architect, index) => (
-                    <Reveal key={architect._id} delay={index * 0.1}>
+              </div>
+            </Reveal>
+            <Grid cols={3} gap="default">
+              {savedLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <Reveal key={`saved-architect-skeleton-${i}`} delay={i * 0.1}>
+                      <div className="dome-card p-4">
+                        <Skeleton className="aspect-[4/3] mb-4 rounded-2xl" />
+                        <Skeleton className="h-5 w-2/3 mb-2" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    </Reveal>
+                  ))
+                : savedArchitects.filter(a => a?.slug).map((architect, i) => (
+                    <Reveal key={architect._id || `saved-${architect.slug}-${i}`} delay={i * 0.1}>
                       <Link to={`/architect/${architect.slug}`}>
-                        <div
-                          className="dome-card p-4 group"
-                          onClick={() => track("profile_view", { architectId: architect._id })}
-                        >
+                        <div className="dome-card p-4 group">
                           <div className="image-zoom aspect-[4/3] mb-4 rounded-2xl overflow-hidden">
-                            <img
-                              src={architect.heroImage}
-                              alt={architect.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
+                            <img src={architect.heroImage} alt={architect.name} className="w-full h-full object-cover" loading="lazy" />
                           </div>
-                          <h3 className="text-body font-medium group-hover:text-muted-foreground transition-colors">
-                            {architect.name}
-                          </h3>
+                          <h3 className="text-body font-medium group-hover:text-muted-foreground transition-colors">{architect.name}</h3>
                           <p className="text-body-sm text-muted-foreground">{architect.specialty}</p>
                         </div>
                       </Link>
                     </Reveal>
                   ))}
-                </Grid>
-              </Container>
-            </Section>
-          )}
-          <DomeCTA />
-        </div>
+            </Grid>
+          </Container>
+        </Section>
+
+        {/* ── Recommendations ────────────────────────────────── */}
+        {recommendations.length > 0 && (
+          <Section padding="small" className="pb-32">
+            <Container>
+              <Reveal>
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-display-sm">Recommended for you</h2>
+                  <span className="text-caption text-muted-foreground">Based on your activity</span>
+                </div>
+              </Reveal>
+              <Grid cols={3} gap="default">
+                {recommendations.map((architect, i) => (
+                  <Reveal key={architect._id} delay={i * 0.1}>
+                    <ArchitectDiscoveryCard architect={architect} saved={savedIds.has(architect._id)} />
+                  </Reveal>
+                ))}
+              </Grid>
+            </Container>
+          </Section>
+        )}
+
+        <DomeCTA />
       </main>
       <Footer />
     </PageTransition>
   );
 };
-
-const DashboardCardSkeleton = () => (
-  <div className="dome-card p-6 flex items-center gap-6">
-    <Skeleton className="h-16 w-16 rounded-full" />
-    <div className="flex-1 space-y-2">
-      <Skeleton className="h-5 w-1/3" />
-      <Skeleton className="h-4 w-2/3" />
-    </div>
-    <Skeleton className="h-4 w-20" />
-  </div>
-);
 
 export default HomeownerDashboard;

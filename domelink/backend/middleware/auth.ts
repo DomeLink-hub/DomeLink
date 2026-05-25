@@ -25,7 +25,18 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         name: true, 
         email: true, 
         role: true, 
-        avatar: true 
+        avatar: true,
+        city: true,
+        projectType: true,
+        plotSize: true,
+        budgetMin: true,
+        budgetMax: true,
+        preferredStyles: true,
+        vastuPreference: true,
+        timeline: true,
+        familySize: true,
+        projectStage: true,
+        onboardingCompleted: true
       } // Exclude password hash
     });
 

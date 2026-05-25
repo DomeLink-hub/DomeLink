@@ -14,6 +14,9 @@ const Consultation = () => {
     email: "",
     phone: "",
     details: "",
+    budget: "",
+    timeline: "",
+    plotDetails: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -24,6 +27,9 @@ const Consultation = () => {
     try {
       await api.createConsultation({
         message: `${formData.name} (${formData.email}${formData.phone ? `, ${formData.phone}` : ""}): ${formData.details}`,
+        budget: formData.budget ? parseInt(formData.budget, 10) : undefined,
+        timeline: formData.timeline,
+        plotDetails: formData.plotDetails
       });
     } catch {
       toast.error("Unable to submit consultation. Please try again.");
@@ -32,7 +38,7 @@ const Consultation = () => {
     }
 
     toast.success("Consultation request sent.");
-    setFormData({ name: "", email: "", phone: "", details: "" });
+    setFormData({ name: "", email: "", phone: "", details: "", budget: "", timeline: "", plotDetails: "" });
     setIsSubmitting(false);
   };
 
@@ -82,6 +88,36 @@ const Consultation = () => {
                   className="dome-input"
                   value={formData.phone}
                   onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-caption text-muted-foreground block mb-2">Estimated Budget (Optional)</label>
+                  <input
+                    className="dome-input"
+                    type="number"
+                    placeholder="e.g. 5000000"
+                    value={formData.budget}
+                    onChange={(event) => setFormData({ ...formData, budget: event.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-caption text-muted-foreground block mb-2">Expected Timeline</label>
+                  <input
+                    className="dome-input"
+                    placeholder="e.g. 6 Months"
+                    value={formData.timeline}
+                    onChange={(event) => setFormData({ ...formData, timeline: event.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-caption text-muted-foreground block mb-2">Plot Details / Location</label>
+                <input
+                  className="dome-input"
+                  placeholder="e.g. 2400 sq.ft, Bangalore"
+                  value={formData.plotDetails}
+                  onChange={(event) => setFormData({ ...formData, plotDetails: event.target.value })}
                 />
               </div>
               <div>

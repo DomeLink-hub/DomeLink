@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes avora-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* DomeLink Studio Design System
   Aesthetic: editorial, architectural, high-contrast
 */
@@ -162,6 +168,54 @@
     z-index: 1;
   }
 
+  .avora-toggle {
+    position: relative;
+  }
+
+  .avora-toggle::before {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: 9999px;
+    padding: 1px;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(255, 221, 150, 0.08) 45deg,
+      rgba(255, 210, 120, 0.96) 92deg,
+      rgba(255, 239, 198, 0.98) 104deg,
+      rgba(255, 210, 120, 0.96) 116deg,
+      rgba(255, 221, 150, 0.08) 160deg,
+      transparent 220deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: avora-ring-spin 3.2s linear infinite;
+    pointer-events: none;
+    box-shadow:
+      0 0 10px rgba(255, 212, 126, 0.16),
+      inset 0 0 14px rgba(255, 220, 150, 0.08);
+  }
+
+  .avora-toggle::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 50% 35%, rgba(255, 230, 179, 0.14), transparent 62%);
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .avora-toggle::before {
+      animation: none;
+    }
+  }
+
   /* Typography Classes */
   .font-display {
     font-family: var(--font-display);
@@ -294,6 +348,11 @@
     @apply w-full rounded-full border border-border/70 bg-background/60 px-4 py-3 text-body-sm text-foreground outline-none transition-colors focus:border-foreground;
   }
 
+  /* Textarea variant — same tokens, rectangular */
+  textarea.dome-input {
+    @apply rounded-2xl;
+  }
+
   .dome-button {
     @apply inline-flex items-center gap-2 rounded-full border border-foreground/30 bg-foreground px-6 py-3 text-caption text-background transition-colors hover:bg-foreground/90;
   }
@@ -403,6 +462,28 @@
   .block-padding {
     padding-top: var(--space-block);
     padding-bottom: var(--space-block);
+  }
+
+  /* Cinematic skeleton loader */
+  .dome-skeleton {
+    @apply rounded-xl bg-border/40 animate-pulse;
+  }
+
+  /* Blueprint grid utility */
+  .blueprint-grid {
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

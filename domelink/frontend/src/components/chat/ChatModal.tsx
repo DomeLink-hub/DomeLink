@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
+import { Link } from "react-router-dom";
 import { api, type Architect, type ChatMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
@@ -16,12 +17,87 @@ interface ChatModalProps {
 
 type PaymentStatus = "idle" | "processing" | "success";
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const renderMarkdown = (value: string) => {
+  const lines = value.replace(/\r\n/g, "\n").split("\n");
+  const blocks: string[] = [];
+  let listItems: string[] = [];
+
+  const closeList = () => {
+    if (listItems.length > 0) {
+      blocks.push(`<ul>${listItems.map((item) => `<li>${item}</li>`).join("")}</ul>`);
+      listItems = [];
+    }
+  };
+
+  const formatInline = (input: string) =>
+    escapeHtml(input)
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      closeList();
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      listItems.push(formatInline(line.replace(/^[-*]\s+/, "")));
+      continue;
+    }
+
+    closeList();
+
+    if (/^###\s+/.test(line)) {
+      blocks.push(`<h3>${formatInline(line.replace(/^###\s+/, ""))}</h3>`);
+      continue;
+    }
+
+    if (/^##\s+/.test(line)) {
+      blocks.push(`<h2>${formatInline(line.replace(/^##\s+/, ""))}</h2>`);
+      continue;
+    }
+
+    if (/^#\s+/.test(line)) {
+      blocks.push(`<h1>${formatInline(line.replace(/^#\s+/, ""))}</h1>`);
+      continue;
+    }
+
+    blocks.push(`<p>${formatInline(line)}</p>`);
+  }
+
+  closeList();
+  return blocks.join("");
+};
+
+const MessageBody = ({ message, isAssistant }: { message: string; isAssistant: boolean }) => {
+  if (!isAssistant) {
+    return <p className="text-body-sm whitespace-pre-wrap">{message}</p>;
+  }
+
+  return (
+    <div
+      className="prose prose-sm max-w-none prose-headings:mb-2 prose-p:my-2 prose-li:my-1 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:bg-foreground/10 prose-code:text-current"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(message) }}
+    />
+  );
+};
+
 const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsultationId }: ChatModalProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   
-  // PRISMA FIX: Changed _id to id
-  const isAiBot = architect.id === "ai-bot";
+  const assistantId = architect._id || architect.id;
+  const isAiBot = assistantId === "ai-bot";
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialConsultationId || isAiBot ? "success" : "idle");
   const [consultationId, setConsultationId] = useState<string | null>(initialConsultationId || null);
   const [inputValue, setInputValue] = useState("");
@@ -119,7 +195,18 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
 
   const sendMessageMutation = useMutation({
     mutationFn: (message: string) => api.sendChat(consultationId || "", message),
-    onSuccess: () => {
+    onSuccess: (message) => {
+      setMessages((prev) => {
+        const messageId = message.id || message._id;
+        if (messageId && prev.some((item) => (item.id || item._id) === messageId)) {
+          return prev;
+        }
+        return [...prev, message];
+      });
+      socket?.emit("send_message", {
+        ...message,
+        consultationId,
+      });
       setIsTyping(false);
       void queryClient.invalidateQueries({ queryKey: queryKeys.chat(consultationId || "") });
     },
@@ -139,9 +226,9 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
       const consultationIdToUse = consultationId
   ? consultationId
   : (await api.createConsultation({
-      architectId: architect.id,
+      architectId: assistantId || architect._id,
       message: "Hi, I would like to start a consultation.",
-    })).consultationId;
+    }))._id;
 
       setConsultationId(consultationIdToUse);
       setPaymentStatus("success");
@@ -173,9 +260,9 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
       const userName = user?.name || "Guest";
       
       const userMessage = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, // PRISMA FIX: Changed _id to id
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         consultationId,
-        sender: { id: userId, name: userName, role: "CLIENT" }, // PRISMA FIX: senderId to sender, homeowner to CLIENT
+        sender: { id: userId, name: userName, role: "CLIENT" },
         message: inputValue,
         timestamp: now,
         readBy: [],
@@ -185,35 +272,90 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
       setInputValue("");
       setIsTyping(true);
       
-      const nextResponse = buildAiResponse(inputValue);
-      
-      setTimeout(() => {
-        const botMessage = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, // PRISMA FIX: Changed _id to id
+      const nextResponseId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setMessages((prev) => [...prev, {
+          id: nextResponseId,
           consultationId,
-          sender: { id: architect.id, name: architect.name, role: "ARCHITECT", avatar: architect.profileImage }, // PRISMA FIX
-          message: nextResponse,
+          sender: { id: assistantId, name: architect.name, role: "ARCHITECT", avatar: architect.profileImage },
+          message: "",
           timestamp: new Date().toISOString(),
           readBy: [],
-        };
-        setMessages((prev) => [...prev, botMessage]);
-        setIsTyping(false);
-        setTimeout(() => {
-          endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 80);
-      }, 700);
+      }]);
+      
+      (async () => {
+         try {
+           const token = localStorage.getItem("domelink_token");
+           const conversationContext = messages
+              .filter(m => !m.isSystemMessage)
+              .map(m => ({ 
+                role: m.sender?.id === user?.id ? "user" : "assistant",
+                content: m.message 
+              }));
+              
+           conversationContext.push({ role: "user", content: inputValue });
+
+           const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ai/chat`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { "Authorization": `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({ messages: conversationContext, stream: true })
+           });
+
+           if (!response.body) throw new Error("No body");
+           const reader = response.body.getReader();
+           const decoder = new TextDecoder("utf-8");
+           let buffer = "";
+
+           while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n\n");
+              buffer = lines.pop() || "";
+              
+              for (const line of lines) {
+                 if (line.startsWith("data: ")) {
+                    const data = line.slice(6);
+                    if (data === "[DONE]") {
+                       setIsTyping(false);
+                       return;
+                    }
+                    try {
+                       const parsed = JSON.parse(data);
+                       if (parsed.text) {
+                          setMessages(prev => prev.map(m => {
+                             if (m.id === nextResponseId) {
+                                return { ...m, message: m.message + parsed.text };
+                             }
+                             return m;
+                          }));
+                          endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
+                       }
+                    } catch (e) {}
+                 }
+              }
+           }
+         } catch (err) {
+            setMessages(prev => prev.map(m => {
+                if (m.id === nextResponseId && m.message === "") {
+                   return { ...m, message: "I'm sorry, I am currently experiencing degraded connection. Let's try again in a moment." };
+                }
+                return m;
+             }));
+         } finally {
+            setIsTyping(false);
+         }
+      })();
       return;
     }
 
     // Emit via Socket directly for instant UI update
     // socket?.emit("send_message", { consultationId, message: inputValue });
     // sendMessageMutation.mutate(inputValue);
-    socket?.emit("send_message", { 
-      consultationId, 
-      message: inputValue,
-      userId: user?.id 
-    });
-    
+    sendMessageMutation.mutate(inputValue);
     setInputValue("");
   };
 
@@ -225,13 +367,13 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
     const initialMessage = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, // PRISMA FIX
       consultationId: "ai-session",
-      sender: { id: architect.id, name: architect.name, role: "ARCHITECT", avatar: architect.profileImage }, // PRISMA FIX
+      sender: { id: assistantId || "ai-bot", name: architect.name, role: "ARCHITECT", avatar: architect.profileImage },
       message: aiPrompt,
       timestamp: now,
       readBy: [],
     };
     setMessages([initialMessage]);
-  }, [aiPrompt, architect.id, architect.name, architect.profileImage, isAiBot, isOpen, messages.length]);
+  }, [aiPrompt, assistantId, architect.name, architect.profileImage, isAiBot, isOpen, messages.length]);
 
   const groupedMessages = messages.reduce<Array<{ date: string; items: Array<any & { compact: boolean; readLabel?: string }> }>>((acc, message, index) => {
     const date = new Date(message.timestamp).toLocaleDateString();
@@ -287,7 +429,7 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
                 <img
                   src={architect.profileImage || architect.avatar}
                   alt={architect.name}
-                  className="w-12 h-12 rounded-full object-cover"
+                  className="w-14 h-14 md:w-16 md:h-16 rounded-full object-cover"
                 />
                 <div>
                   <h3 className="text-body font-medium">{architect.name}</h3>
@@ -374,31 +516,37 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
                           key={message.id} // PRISMA FIX
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className={`flex ${message.sender?.id === architect.id ? "justify-start" : "justify-end"}`} // PRISMA FIX
+                          className={`flex ${message.isSystemMessage ? "justify-center" : (message.sender?.id === architect._id ? "justify-start" : "justify-end")}`} 
                         >
-                          <div
-                            className={`max-w-[80%] p-4 relative ${
-                              message.sender?.id === architect.id ? "bg-secondary" : "bg-foreground text-background"
-                            } ${message.compact ? "mt-1" : "mt-3"}`}
-                          >
-                            {!message.compact ? <p className="text-xs opacity-70 mb-1">{message.sender?.name}</p> : null}
-                            <p className="text-body-sm">{message.message}</p>
-                            <span className="text-xs opacity-60 mt-2 block">
-                              {new Date(message.timestamp).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                              {message.sender?.id === user?.id && message.readLabel ? (
-                                <span className="ml-2 inline-block align-middle">
-                                  <motion.span
-                                    className="inline-block w-2 h-2 rounded-full bg-emerald-400"
-                                    animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
-                                    transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
-                                  />
-                                </span>
-                              ) : ""}
-                            </span>
-                          </div>
+                          {message.isSystemMessage ? (
+                             <div className="bg-muted text-muted-foreground text-xs px-3 py-1 rounded-full my-2">
+                               {message.message}
+                             </div>
+                          ) : (
+                             <div
+                               className={`max-w-[80%] p-4 relative rounded-xl ${
+                                 message.sender?.id === architect._id ? "bg-secondary text-foreground" : "bg-foreground text-background"
+                               } ${message.compact ? "mt-1" : "mt-3"}`}
+                             >
+                               {!message.compact ? <p className="text-xs opacity-70 mb-1">{message.sender?.name}</p> : null}
+                               <MessageBody message={message.message} isAssistant={message.sender?.id === assistantId} />
+                               <span className="text-xs opacity-60 mt-2 block">
+                                 {new Date(message.timestamp).toLocaleTimeString([], {
+                                   hour: "2-digit",
+                                   minute: "2-digit",
+                                 })}
+                                 {message.sender?.id === user?.id && message.readLabel ? (
+                                   <span className="ml-2 inline-block align-middle">
+                                     <motion.span
+                                       className="inline-block w-2 h-2 rounded-full bg-emerald-400"
+                                       animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
+                                       transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
+                                     />
+                                   </span>
+                                 ) : ""}
+                               </span>
+                             </div>
+                          )}
                         </motion.div>
                       ))}
                     </div>
@@ -417,7 +565,9 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
                         animate={{ scaleX: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
                         transition={{ repeat: Infinity, duration: 1.1, ease: "easeInOut" }}
                       />
-                      <span className="text-xs text-muted-foreground">Architect is typing…</span>
+                      <span className="text-xs text-muted-foreground">
+                        {isAiBot ? "Avora is thinking…" : "Architect is typing…"}
+                      </span>
                     </motion.div>
                   )}
                   <div ref={endOfMessagesRef} />
@@ -428,6 +578,17 @@ const ChatModal = ({ isOpen, onClose, architect, consultationId: initialConsulta
             {/* Message Input */}
             {paymentStatus === "success" && (
               <div className="p-4 border-t border-border">
+                {consultationId && !isAiBot && (
+                  <div className="mb-2 text-right">
+                    <Link
+                      to={`/messages?consultation=${consultationId}`}
+                      className="text-caption text-muted-foreground hover:text-foreground link-underline"
+                      onClick={handleClose}
+                    >
+                      Open full chat
+                    </Link>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -468,25 +629,5 @@ const CheckIcon = () => (
     <path d="M3 8l4 4 6-8" />
   </svg>
 );
-
-const buildAiResponse = (input: string) => {
-  const normalized = input.toLowerCase();
-  if (normalized.includes("budget")) {
-    return "Share your target budget range and location, and I’ll map architects and cost bands that fit.";
-  }
-  if (normalized.includes("style") || normalized.includes("modern") || normalized.includes("minimal")) {
-    return "Great style direction. Tell me your preferred materials and timeline and I’ll curate matching studios.";
-  }
-  if (normalized.includes("timeline") || normalized.includes("deadline")) {
-    return "We can plan around your timeline. When do you want design kickoff and when do you need permits?";
-  }
-  if (normalized.includes("commercial") || normalized.includes("office")) {
-    return "For commercial projects, I’ll focus on code-ready architects and space-planning teams. What square footage and use case?";
-  }
-  if (normalized.includes("home") || normalized.includes("residential")) {
-    return "For residential projects, I’ll recommend architects with similar homes. What’s your plot size and location?";
-  }
-  return "Tell me your project type, location, and budget range. I’ll generate a tailored plan and shortlist.";
-};
 
 export default ChatModal;

@@ -136,7 +136,7 @@ const HomeownerProjectBrief = () => {
                       onChange={(event) =>
                         setForm((prev) => ({ ...prev, projectType: event.target.value as ProjectBrief["projectType"] }))
                       }
-                      className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-body"
+                      className="dome-input mt-2"
                     >
                       <option value="residential">Residential</option>
                       <option value="commercial">Commercial</option>
@@ -254,7 +254,7 @@ const Input = ({ label, value, onChange }: InputProps) => (
     <input
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-body"
+      className="dome-input mt-2"
     />
   </div>
 );
@@ -270,7 +270,7 @@ const TextArea = ({ label, hint, value, onChange }: TextAreaProps) => (
     <textarea
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="mt-2 w-full min-h-[120px] rounded-2xl border border-border bg-background px-4 py-3 text-body"
+      className="dome-input mt-2 min-h-[120px] resize-none"
     />
   </div>
 );

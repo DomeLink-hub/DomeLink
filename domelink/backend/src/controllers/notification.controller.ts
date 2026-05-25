@@ -10,6 +10,12 @@ export const getNotifications = asyncHandler(async (req: Request, res: Response)
   res.status(200).json(notifications);
 });
 
+export const getNotificationCount = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.auth?.sub) throw new AppError("Unauthorized", 401);
+  const unreadCount = await NotificationModel.countDocuments({ user: req.auth.sub, read: false });
+  res.status(200).json({ unreadCount });
+});
+
 export const markNotificationRead = asyncHandler(async (req: Request, res: Response) => {
   if (!req.auth?.sub) throw new AppError("Unauthorized", 401);
   const { notificationId } = req.params;

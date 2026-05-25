@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { Container, Section } from "@/components/layout/Layout";
-import Reveal, { StaggerContainer, StaggerItem } from "@/components/animations/Reveal";
+import { Container, Section, Grid } from "@/components/layout/Layout";
+import Reveal from "@/components/animations/Reveal";
 import PageTransition from "@/components/layout/PageTransition";
 import DomeHero from "@/components/layout/DomeHero";
 import DomeCTA from "@/components/layout/DomeCTA";
-import { api, type Architect } from "@/lib/api";
+import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { useAnalytics } from "@/hooks/useAnalytics";
-import { Heart } from "lucide-react";
+import ArchitectDiscoveryCard from "@/components/discovery/ArchitectDiscoveryCard";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Explore = () => {
@@ -27,28 +25,65 @@ const Explore = () => {
     preferredStyle: "",
     location: "",
     plotSize: "",
+    city: "",
+    projectType: "",
+    verified: false,
+    featured: false,
+    sortBy: "relevance" as "relevance" | "rating" | "trust" | "response",
   });
 
   // 2. The Applied State (what actually triggers the API fetch)
   const [appliedFilters, setAppliedFilters] = useState(inputs);
+
+  // Count active filters for badge
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (appliedFilters.minRating > 0) count++;
+    if (appliedFilters.minBudget > 0 || appliedFilters.maxBudget < 100000) count++;
+    if (appliedFilters.preferredStyle) count++;
+    if (appliedFilters.city) count++;
+    if (appliedFilters.projectType) count++;
+    if (appliedFilters.verified) count++;
+    if (appliedFilters.featured) count++;
+    return count;
+  }, [appliedFilters]);
 
   // 3. React Query now LISTENS ONLY to appliedFilters
   const { data: filteredArchitects = [], isLoading } = useQuery({
     queryKey: queryKeys.architects({ 
       minRating: appliedFilters.minRating, 
       minBudget: appliedFilters.minBudget, 
-      maxBudget: appliedFilters.maxBudget 
+      maxBudget: appliedFilters.maxBudget,
+      city: appliedFilters.city,
+      style: appliedFilters.preferredStyle,
+      projectType: appliedFilters.projectType,
+      verified: appliedFilters.verified,
+      featured: appliedFilters.featured,
     }),
     queryFn: () =>
       api.getArchitects({
         minRating: appliedFilters.minRating || undefined,
         minBudget: appliedFilters.minBudget || undefined,
         maxBudget: appliedFilters.maxBudget || undefined,
+        city: appliedFilters.city || undefined,
+        style: appliedFilters.preferredStyle || undefined,
+        projectType: appliedFilters.projectType || undefined,
+        verified: appliedFilters.verified || undefined,
+        featured: appliedFilters.featured || undefined,
       }),
   });
 
+  // Sort architects client-side based on sortBy
+  const sortedArchitects = useMemo(() => {
+    const arr = [...filteredArchitects];
+    if (appliedFilters.sortBy === "rating") return arr.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (appliedFilters.sortBy === "trust") return arr.sort((a, b) => (b.trustScore || 0) - (a.trustScore || 0));
+    if (appliedFilters.sortBy === "response") return arr.sort((a, b) => (a.consultationFee || 0) - (b.consultationFee || 0));
+    return arr; // relevance — keep server order
+  }, [filteredArchitects, appliedFilters.sortBy]);
+
   const { data: recommendationsPayload } = useQuery({
-    queryKey: ["recommendations", appliedFilters.minBudget, appliedFilters.maxBudget, appliedFilters.preferredStyle, appliedFilters.location, appliedFilters.plotSize],
+    queryKey: ["recommendations", appliedFilters.minBudget, appliedFilters.maxBudget, appliedFilters.preferredStyle, appliedFilters.location, appliedFilters.plotSize, appliedFilters.city, appliedFilters.projectType, appliedFilters.verified, appliedFilters.featured],
     queryFn: () =>
       api.getHomeownerRecommendations({
         budgetMin: appliedFilters.minBudget || undefined,
@@ -56,6 +91,10 @@ const Explore = () => {
         style: appliedFilters.preferredStyle || undefined,
         location: appliedFilters.location || undefined,
         plotSize: appliedFilters.plotSize || undefined,
+        city: appliedFilters.city || undefined,
+        projectType: appliedFilters.projectType || undefined,
+        verified: appliedFilters.verified || undefined,
+        featured: appliedFilters.featured || undefined,
       }),
   });
 
@@ -66,6 +105,8 @@ const Explore = () => {
     queryFn: api.getSavedArchitects,
     enabled: Boolean(localStorage.getItem("domelink_token")),
   });
+
+  const savedIds = useMemo(() => new Set(savedArchitects.map((architect) => architect._id)), [savedArchitects]);
 
   const saveMutation = useMutation({
     mutationFn: (architectId: string) => api.saveArchitect(architectId),
@@ -88,12 +129,25 @@ const Explore = () => {
     track("search_filter", appliedFilters);
   }, [appliedFilters, track]);
 
-  // Handlers for Input and Buttons
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target;
-    setInputs(prev => ({
+  // Toggle helpers for chip filters
+  const toggleStyle = (style: string) => {
+    setInputs((prev) => ({
       ...prev,
-      [name]: type === 'number' || type === 'range' ? Number(value) : value
+      preferredStyle: prev.preferredStyle === style ? "" : style,
+    }));
+  };
+
+  const toggleCity = (city: string) => {
+    setInputs((prev) => ({
+      ...prev,
+      city: prev.city === city ? "" : city,
+    }));
+  };
+
+  const toggleProjectType = (type: string) => {
+    setInputs((prev) => ({
+      ...prev,
+      projectType: prev.projectType === type ? "" : type,
     }));
   };
 
@@ -109,10 +163,19 @@ const Explore = () => {
       preferredStyle: "",
       location: "",
       plotSize: "",
+      city: "",
+      projectType: "",
+      verified: false,
+      featured: false,
+      sortBy: "relevance" as const,
     };
     setInputs(defaultState);
-    setAppliedFilters(defaultState); // Resets the UI and the Search
+    setAppliedFilters(defaultState);
   };
+
+  const STYLES = ["Modern Minimal", "Contemporary Indian", "Tropical", "Luxury Villa", "Sustainable", "Courtyard"];
+  const EXPERTISE = ["Vastu", "Sustainability", "Luxury", "Commercial"];
+  const CITIES = ["Bangalore", "Mumbai", "Delhi", "Pune", "Hyderabad", "Chennai"];
 
   return (
     <PageTransition>
@@ -120,8 +183,8 @@ const Explore = () => {
       <main>
         <DomeHero
           kicker="Discover"
-          title="Find the architect who understands your vision"
-          subtitle="Filter by specialty, location, rating, and budget to match with a verified studio."
+          title="Find the architect who understands your Indian home"
+          subtitle="Filter by city, style, budget, verification, and project type to match with the right studio."
           imageUrl="https://images.unsplash.com/photo-1502005097973-6a7082348e28?w=1920&q=80"
           align="left"
           className="pt-20"
@@ -131,81 +194,146 @@ const Explore = () => {
         <Section padding="none" className="pb-12">
           <Container>
             <Reveal delay={0.2}>
-              <div className="dome-flow pt-6 flex flex-wrap gap-8 items-end">
-                <FilterGroup label="Minimum Rating">
-                  <input
-                    type="range"
-                    name="minRating"
-                    min="0"
-                    max="5"
-                    step="0.5"
-                    value={inputs.minRating}
-                    onChange={handleInputChange}
-                    className="w-32 accent-foreground"
-                  />
-                  <span className="text-body-sm text-muted-foreground ml-2">
-                    {inputs.minRating > 0 ? `${inputs.minRating}+` : "Any"}
-                  </span>
-                </FilterGroup>
-
-                <FilterGroup label="Budget Range">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      name="minBudget"
-                      placeholder="Min"
-                      value={inputs.minBudget || ""}
-                      onChange={handleInputChange}
-                      className="w-28 dome-input"
-                    />
-                    <span className="text-muted-foreground">—</span>
-                    <input
-                      type="number"
-                      name="maxBudget"
-                      placeholder="Max"
-                      value={inputs.maxBudget === 100000 ? "" : inputs.maxBudget}
-                      onChange={handleInputChange}
-                      className="w-28 dome-input"
-                    />
+              <div className="dome-card p-6 space-y-6">
+                {/* Style chips */}
+                <div>
+                  <span className="text-caption text-muted-foreground block mb-3">Style</span>
+                  <div className="flex flex-wrap gap-2">
+                    {STYLES.map((style) => (
+                      <button
+                        key={style}
+                        onClick={() => toggleStyle(style)}
+                        className={`dome-chip cursor-pointer transition-colors duration-200 ${
+                          inputs.preferredStyle === style
+                            ? "bg-foreground text-background border-foreground"
+                            : "hover:border-foreground/50"
+                        }`}
+                      >
+                        {style}
+                      </button>
+                    ))}
                   </div>
-                </FilterGroup>
+                </div>
 
-                <FilterGroup label="Preferred Style">
-                  <input
-                    type="text"
-                    name="preferredStyle"
-                    placeholder="Minimal, Modern, Coastal"
-                    value={inputs.preferredStyle}
-                    onChange={handleInputChange}
-                    className="w-48 dome-input"
-                  />
-                </FilterGroup>
+                {/* Expertise chips */}
+                <div>
+                  <span className="text-caption text-muted-foreground block mb-3">Expertise</span>
+                  <div className="flex flex-wrap gap-2">
+                    {EXPERTISE.map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => toggleProjectType(type)}
+                        className={`dome-chip cursor-pointer transition-colors duration-200 ${
+                          inputs.projectType === type
+                            ? "bg-foreground text-background border-foreground"
+                            : "hover:border-foreground/50"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                <FilterGroup label="Location">
-                  <input
-                    type="text"
-                    name="location"
-                    placeholder="City, Country"
-                    value={inputs.location}
-                    onChange={handleInputChange}
-                    className="w-48 dome-input"
-                  />
-                </FilterGroup>
+                {/* Trust chips */}
+                <div>
+                  <span className="text-caption text-muted-foreground block mb-3">Trust</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setInputs((p) => ({ ...p, verified: !p.verified }))}
+                      className={`dome-chip cursor-pointer transition-colors duration-200 ${
+                        inputs.verified ? "bg-foreground text-background border-foreground" : "hover:border-foreground/50"
+                      }`}
+                    >
+                      Verified Only
+                    </button>
+                    <button
+                      onClick={() => setInputs((p) => ({ ...p, featured: !p.featured }))}
+                      className={`dome-chip cursor-pointer transition-colors duration-200 ${
+                        inputs.featured ? "bg-foreground text-background border-foreground" : "hover:border-foreground/50"
+                      }`}
+                    >
+                      Featured Only
+                    </button>
+                  </div>
+                </div>
 
-                <div className="flex items-center gap-4">
-                  <button onClick={handleSearch} className="dome-button">
-                    Apply Filters
-                  </button>
-                  <button onClick={handleClear} className="dome-button-outline">
-                    Clear
-                  </button>
+                {/* City chips */}
+                <div>
+                  <span className="text-caption text-muted-foreground block mb-3">City</span>
+                  <div className="flex flex-wrap gap-2">
+                    {CITIES.map((city) => (
+                      <button
+                        key={city}
+                        onClick={() => toggleCity(city)}
+                        className={`dome-chip cursor-pointer transition-colors duration-200 ${
+                          inputs.city === city
+                            ? "bg-foreground text-background border-foreground"
+                            : "hover:border-foreground/50"
+                        }`}
+                      >
+                        {city}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Budget range + Sort */}
+                <div className="flex flex-wrap items-end gap-6 pt-2 border-t border-border/50">
+                  <FilterGroup label="Budget Range">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        name="minBudget"
+                        placeholder="Min"
+                        value={inputs.minBudget || ""}
+                        onChange={(e) => setInputs((p) => ({ ...p, minBudget: Number(e.target.value) }))}
+                        className="w-28 dome-input"
+                      />
+                      <span className="text-muted-foreground">—</span>
+                      <input
+                        type="number"
+                        name="maxBudget"
+                        placeholder="Max"
+                        value={inputs.maxBudget === 100000 ? "" : inputs.maxBudget}
+                        onChange={(e) => setInputs((p) => ({ ...p, maxBudget: Number(e.target.value) || 100000 }))}
+                        className="w-28 dome-input"
+                      />
+                    </div>
+                  </FilterGroup>
+
+                  <FilterGroup label="Sort by">
+                    <select
+                      value={inputs.sortBy}
+                      onChange={(e) => setInputs((p) => ({ ...p, sortBy: e.target.value as typeof inputs.sortBy }))}
+                      className="dome-input w-44"
+                    >
+                      <option value="relevance">Relevance</option>
+                      <option value="rating">Rating</option>
+                      <option value="trust">Trust Score</option>
+                      <option value="response">Response Speed</option>
+                    </select>
+                  </FilterGroup>
+
+                  <div className="flex items-center gap-3 ml-auto">
+                    <button onClick={handleSearch} className="dome-button relative">
+                      Apply Filters
+                      {activeFilterCount > 0 && (
+                        <span className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center border-2 border-background">
+                          {activeFilterCount}
+                        </span>
+                      )}
+                    </button>
+                    <button onClick={handleClear} className="dome-button-outline">
+                      Clear
+                    </button>
+                  </div>
                 </div>
               </div>
             </Reveal>
           </Container>
         </Section>
 
-        {/* Architect List */}
         {/* Architect List */}
         <Section padding="small">
           <Container>
@@ -217,44 +345,43 @@ const Explore = () => {
                     <span className="text-caption text-muted-foreground">Based on your preferences</span>
                   </div>
                 </Reveal>
-                <StaggerContainer className="space-y-0">
+                <Grid cols={3} gap="default">
                   {recommendations.filter(a => a && a.slug).map((architect, index) => (
-                    <StaggerItem key={architect._id || index}>
-                      <ArchitectRow
+                    <Reveal key={architect._id || index} delay={index * 0.08}>
+                      <ArchitectDiscoveryCard
                         architect={architect}
-                        index={index}
-                        savedArchitects={savedArchitects}
+                        saved={savedIds.has(architect._id)}
+                        reason="Ranked for your budget, city, and style signals"
                         onSave={saveMutation.mutate}
                         onUnsave={unsaveMutation.mutate}
                       />
-                    </StaggerItem>
+                    </Reveal>
                   ))}
-                </StaggerContainer>
+                </Grid>
               </div>
             )}
-            <StaggerContainer className="space-y-0">
+            <Grid cols={3} gap="default">
               {isLoading && (
                 <Reveal>
                   <div className="space-y-6 py-8">
-                    <ArchitectRowSkeleton />
-                    <ArchitectRowSkeleton />
+                    <ArchitectCardSkeleton />
+                    <ArchitectCardSkeleton />
                   </div>
                 </Reveal>
               )}
-              {filteredArchitects.filter(a => a && a.slug).map((architect, index) => (
-                <StaggerItem key={architect._id || index}>
-                  <ArchitectRow
+              {sortedArchitects.filter(a => a && a.slug).map((architect, index) => (
+                <Reveal key={architect._id || index} delay={index * 0.08}>
+                  <ArchitectDiscoveryCard
                     architect={architect}
-                    index={index}
-                    savedArchitects={savedArchitects}
+                    saved={savedIds.has(architect._id)}
                     onSave={saveMutation.mutate}
                     onUnsave={unsaveMutation.mutate}
                   />
-                </StaggerItem>
+                </Reveal>
               ))}
-            </StaggerContainer>
+            </Grid>
 
-            {!isLoading && filteredArchitects.length === 0 && (
+            {!isLoading && sortedArchitects.length === 0 && (
               <Reveal>
                 <div className="text-center py-24">
                   <p className="text-display-sm text-muted-foreground">
@@ -282,107 +409,18 @@ const FilterGroup = ({ label, children }: { label: string; children: React.React
   </div>
 );
 
-interface ArchitectRowProps {
-  architect: Architect;
-  index: number;
-  savedArchitects?: Architect[];
-  onSave?: (id: string) => void;
-  onUnsave?: (id: string) => void;
-}
-
-const ArchitectRow = ({ architect, index, savedArchitects = [], onSave, onUnsave }: ArchitectRowProps) => {
-  const isSaved = useMemo(() => savedArchitects.filter(item => item && item._id).some((item) => item._id === architect._id), [savedArchitects, architect._id]);
-  if (!architect || !architect.slug) return null;
-  return (
-    <Link to={`/architect/${architect.slug}`}>
-      <motion.article
-        className="group grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 py-10 border-b border-border/40 cursor-pointer"
-        whileHover={{ x: 10 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {/* Image */}
-        <div className="lg:col-span-5 image-zoom aspect-[4/3] lg:aspect-[16/10]">
-          <img
-            src={architect.heroImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"}
-            alt={architect.name}
-            className="w-full h-full object-cover rounded-xl"
-            loading="lazy"
-          />
-        </div>
-
-        {/* Content */}
-        <div className="lg:col-span-7 flex flex-col justify-center">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h2 className="text-display-md group-hover:text-muted-foreground transition-colors duration-300">
-                {architect.name}
-              </h2>
-              <p className="text-body text-muted-foreground mt-1">
-                {architect.location || "Location not set"}
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="text-caption text-muted-foreground block">Rating</span>
-              <span className="text-display-sm">{architect.rating || "New"}</span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              if (isSaved) {
-                onUnsave?.(architect._id);
-              } else {
-                onSave?.(architect._id);
-              }
-            }}
-            className="inline-flex items-center gap-2 text-caption text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <motion.span whileTap={{ scale: 0.9 }}>
-              <Heart className={isSaved ? "fill-foreground text-foreground" : "text-muted-foreground"} size={16} />
-            </motion.span>
-            {isSaved ? "Saved" : "Save"}
-          </button>
-
-          <p className="text-body text-muted-foreground mb-6 max-w-xl line-clamp-2">
-            {architect.specialty || architect.about || "No details provided."}
-          </p>
-
-          <div className="flex items-center gap-8">
-            <div>
-              <span className="text-caption text-muted-foreground block">Starting From</span>
-              <span className="text-body-lg font-medium">
-                ${(architect.startingPrice || 0).toLocaleString()}
-              </span>
-            </div>
-            <div>
-              <span className="text-caption text-muted-foreground block">Experience</span>
-              <span className="text-body">{architect.experience || "N/A"}</span>
-            </div>
-            <div>
-              <span className="text-caption text-muted-foreground block">Team</span>
-              <span className="text-body">{architect.teamSize || 1} people</span>
-            </div>
-          </div>
-        </div>
-      </motion.article>
-    </Link>
-  );
-};
-
-const ArchitectRowSkeleton = () => (
-  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 py-10 border-b border-border/40">
-    <Skeleton className="lg:col-span-5 aspect-[4/3] lg:aspect-[16/10] rounded-2xl" />
-    <div className="lg:col-span-7 space-y-4">
-      <Skeleton className="h-7 w-2/5" />
-      <Skeleton className="h-4 w-1/3" />
-      <Skeleton className="h-4 w-3/4" />
-      <div className="flex gap-4">
-        <Skeleton className="h-8 w-28" />
-        <Skeleton className="h-8 w-28" />
+const ArchitectCardSkeleton = () => (
+  <div className="dome-card overflow-hidden">
+    <Skeleton className="aspect-[4/3] w-full rounded-none" />
+    <div className="space-y-3 p-5">
+      <Skeleton className="h-6 w-2/3" />
+      <Skeleton className="h-4 w-1/2" />
+      <div className="grid grid-cols-3 gap-3">
+        <Skeleton className="h-16 rounded-2xl" />
+        <Skeleton className="h-16 rounded-2xl" />
+        <Skeleton className="h-16 rounded-2xl" />
       </div>
+      <Skeleton className="h-10 w-full rounded-full" />
     </div>
   </div>
 );

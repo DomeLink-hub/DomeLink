@@ -1,17 +1,32 @@
 import { Router } from "express";
-import { getPaymentsForArchitect, createPayment } from "../controllers/payment.controller.js";
+import {
+	createBookingOrder,
+	createConsultationPayment,
+	createFeaturedPlacementPayment,
+	createSubscriptionPayment,
+	handleRazorpayWebhook,
+	getBillingSummary,
+	getMyPayments,
+	getMyInvoices,
+	getPaymentsForArchitect,
+	verifyPayment,
+	downloadInvoicePdf,
+} from "../controllers/payment.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-
-import { PaymentModel } from "../models/Payment.js";
+import { webhookRateLimiter } from "../middleware/rateLimit.js";
 
 export const paymentRouter = Router();
-// Get payments for current user
-paymentRouter.get("/my", requireAuth, async (req, res) => {
-	const userId = req.auth?.sub;
-	if (!userId) return res.status(401).json({ error: "Unauthorized" });
-	const payments = await PaymentModel.find({ payer: userId });
-	res.status(200).json(payments);
-});
 
+paymentRouter.get("/my", requireAuth, getMyPayments);
+paymentRouter.get("/invoices", requireAuth, getMyInvoices);
+paymentRouter.get("/summary", requireAuth, getBillingSummary);
 paymentRouter.get("/architect/:architectId", requireAuth, getPaymentsForArchitect);
-paymentRouter.post("/architect/:architectId", requireAuth, requireRole(["homeowner", "admin"]), createPayment);
+paymentRouter.post("/create-order", requireAuth, requireRole(["CLIENT", "client", "homeowner", "ADMIN", "SUPERADMIN", "admin"]), createBookingOrder);
+paymentRouter.post("/consultation", requireAuth, requireRole(["client", "client", "homeowner", "admin"]), createConsultationPayment);
+paymentRouter.post("/subscription", requireAuth, requireRole(["architect", "admin"]), createSubscriptionPayment);
+paymentRouter.post("/featured", requireAuth, requireRole(["architect", "admin"]), createFeaturedPlacementPayment);
+paymentRouter.post("/webhook", webhookRateLimiter, handleRazorpayWebhook);
+paymentRouter.post("/verify", requireAuth, verifyPayment);
+paymentRouter.get("/invoices/:invoiceId/pdf", requireAuth, downloadInvoicePdf);
+
+export default paymentRouter;

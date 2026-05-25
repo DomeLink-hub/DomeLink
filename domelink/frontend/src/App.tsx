@@ -11,6 +11,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import RoleRoute from "@/components/auth/RoleRoute";
+import OnboardingGuard from "@/components/auth/OnboardingGuard";
 import LoaderScene from "@/components/3d/LoaderScene";
 
 // ... [Keep all your lazy imports exactly the same] ...
@@ -19,6 +20,8 @@ const PortfolioBuilder = lazy(() => import("./pages/architect/PortfolioBuilder")
 const ProjectBriefWizard = lazy(() => import("./pages/homeowner/ProjectBriefWizard"));
 const BudgetRealityChecker = lazy(() => import("./pages/homeowner/BudgetRealityChecker"));
 const StyleQuiz = lazy(() => import("./pages/homeowner/StyleQuiz"));
+const HomeownerOnboarding = lazy(() => import("./pages/homeowner/HomeownerOnboarding"));
+const AvoraEstimate = lazy(() => import("./pages/homeowner/AvoraEstimate"));
 const Index = lazy(() => import("./pages/Index"));
 const ChooseRole = lazy(() => import("./pages/ChooseRole"));
 const FindArchitects = lazy(() => import("./pages/FindArchitects"));
@@ -52,6 +55,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Reviews = lazy(() => import("./pages/Reviews"));
 const Payments = lazy(() => import("./pages/Payments"));
+const Messages = lazy(() => import("./pages/Messages"));
 const Files = lazy(() => import("./pages/Files"));
 const Blog = lazy(() => import("./pages/Blog"));
 const Support = lazy(() => import("./pages/Support"));
@@ -61,12 +65,19 @@ const DemoDashboard = lazy(() => import("./pages/DemoDashboard"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
-      gcTime: 1000 * 60 * 30,
-      retry: 1,
+      staleTime: 1000 * 60 * 5,       // 5 min
+      gcTime:    1000 * 60 * 30,       // 30 min
+      retry: (failureCount, error: any) => {
+        // Don't retry on 401/403/404 — these are definitive
+        if ([401, 403, 404].includes(error?.status)) return false;
+        return failureCount < 2;
+      },
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
       refetchOnMount: false,
+    },
+    mutations: {
+      retry: 0,
     },
   },
 });
@@ -115,22 +126,29 @@ const AppShell = () => {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/reviews" element={<Reviews />} />
               <Route path="/payments" element={<Payments />} />
+              <Route path="/messages" element={<Messages />} />
               <Route path="/files" element={<Files />} />
               <Route path="/support" element={<Support />} />
             </Route>
 
-            {/* Homeowner (CLIENT) Routes */}
+            {/* Homeowner (CLIENT) Onboarding Guarded Routes */}
             <Route element={<RoleRoute allowedRoles={["CLIENT", "ADMIN", "SUPERADMIN"]} />}>
-              <Route path="/homeowner/dashboard" element={<HomeownerDashboard />} />
-              <Route path="/client/dashboard" element={<ClientDashboard />} />
-              <Route path="/homeowner" element={<HomeownerDashboard />} />
-              <Route path="/homeowner/style-quiz" element={<StyleQuiz />} />
-              <Route path="/homeowner/budget-reality" element={<BudgetRealityChecker />} />
-              <Route path="/homeowner/consultations" element={<ConsultationHistory />} />
-              <Route path="/homeowner/messages" element={<HomeownerMessages />} />
-              <Route path="/homeowner/project-brief" element={<HomeownerProjectBrief />} />
-              <Route path="/homeowner/project-brief/wizard" element={<ProjectBriefWizard />} />
-              <Route path="/homeowner/saved" element={<SavedArchitects />} />
+              <Route element={<OnboardingGuard />}>
+                <Route path="/homeowner/dashboard" element={<HomeownerDashboard />} />
+                <Route path="/client/dashboard" element={<ClientDashboard />} />
+                <Route path="/homeowner" element={<HomeownerDashboard />} />
+                <Route path="/homeowner/style-quiz" element={<StyleQuiz />} />
+                <Route path="/homeowner/budget-reality" element={<BudgetRealityChecker />} />
+                <Route path="/homeowner/consultations" element={<ConsultationHistory />} />
+                <Route path="/homeowner/messages" element={<HomeownerMessages />} />
+                <Route path="/homeowner/project-brief" element={<HomeownerProjectBrief />} />
+                <Route path="/homeowner/project-brief/wizard" element={<ProjectBriefWizard />} />
+                <Route path="/homeowner/saved" element={<SavedArchitects />} />
+                <Route path="/homeowner/onboarding" element={<HomeownerOnboarding />} />
+                <Route path="/homeowner/avora-estimate" element={<AvoraEstimate />} />
+              </Route>
+              {/* Onboarding route (unguarded so CLIENT can always access) */}
+              <Route path="/homeowner/onboarding" element={<HomeownerOnboarding />} />
             </Route>
 
             {/* Architect Routes */}
@@ -156,23 +174,24 @@ const AppShell = () => {
       <>
         <button
           onClick={() => setChatOpen((v) => !v)}
-          className="fixed bottom-6 right-6 z-[100] bg-foreground text-background rounded-full shadow-lg p-4 hover:bg-primary transition-all"
-          aria-label="Open AI Chatbot"
+          className="avora-toggle fixed bottom-6 right-6 z-[100] rounded-full w-16 h-16 p-1.5 flex items-center justify-center overflow-hidden border border-white/10 bg-[#1b1612]/80 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-md hover:scale-105 hover:border-white/20 transition-all"
+          aria-label="Ask Avora"
+          title="Ask Avora"
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 15s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></svg>
+          <img src="/Avora.png" alt="Avora" className="block h-12 w-12 object-contain drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" />
         </button>
         <ChatModal
           isOpen={chatOpen}
           onClose={() => setChatOpen(false)}
           architect={{
-            id: "ai-bot", // PRISMA FIX: Changed from _id to id
-            name: "Dome AI Assistant",
-            specialty: "AI Chatbot",
-            profileImage: "/placeholder.svg",
+            _id: "ai-bot",
+            name: "Avora",
+            specialty: "Powered by Avora Intelligence",
+            profileImage: "/Avora.png",
             location: "Cloud",
             rating: 5,
             startingPrice: 0,
-            about: "Your helpful AI assistant for DomeLink.",
+            about: "Avora is your intelligent architecture assistant.",
             heroImage: "",
             projects: [],
             templates: [],
@@ -187,20 +206,24 @@ const AppShell = () => {
   );
 };
 
+import { HelmetProvider } from 'react-helmet-async';
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ErrorBoundary>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppShell />
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </ErrorBoundary>
-  </QueryClientProvider>
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppShell />
+            </BrowserRouter>
+          </TooltipProvider>
+        </AuthProvider>
+      </ErrorBoundary>
+    </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;

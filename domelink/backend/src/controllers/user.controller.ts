@@ -31,6 +31,18 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
       heroImage: true,
       about: true,
       slug: true,
+      designStyles: true,
+        city: true,
+        projectType: true,
+        plotSize: true,
+        budgetMin: true,
+        budgetMax: true,
+        preferredStyles: true,
+        vastuPreference: true,
+        timeline: true,
+        familySize: true,
+        projectStage: true,
+        onboardingCompleted: true,
     }
   });
 

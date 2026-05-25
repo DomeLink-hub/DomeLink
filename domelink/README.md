@@ -1,99 +1,97 @@
-# DomeLink Monorepo
+<div align="center">
+  <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&q=80" alt="DomeLink Premium Residence" width="900" style="border-radius: 12px; margin-bottom: 24px;" />
+  <h1 align="center">DomeLink</h1>
+  <p align="center"><strong>The Elite Architectural Ecosystem & Premium Discovery Platform</strong></p>
 
-DomeLink is a premium full-stack architecture marketplace with JWT auth, recommendations, saved architects, structured consultations, realtime chat, team workspace, 3D interactions, and internal analytics.
+  <p align="center">
+    DomeLink bridges the gap between visionary homeowners and verified architectural studios.<br /> It is a production-ready, highly observable, AI-assisted SaaS platform designed to remove friction, uncertainty, and opacity from the modern construction and renovation process.
+  </p>
 
-## Stack
+  <p align="center">
+    <a href="#quick-start--demo-mode"><strong>Recruiter & Demo Quick Start</strong></a> ·
+    <a href="ARCHITECTURE.md">Architecture Hub</a>
+  </p>
+</div>
 
-- `frontend/`: Vite + React 18 + TypeScript + Tailwind + shadcn/ui + Framer Motion + React Query + React Three Fiber
-- `backend/`: Node.js + Express + TypeScript + MongoDB/Mongoose + JWT + Zod + Socket.io
+---
 
-## Architecture Diagram
+## ✦ The Vision
+Most homeowners navigate architecture through unverified portfolios, opaque pricing, and fragmented communication. **DomeLink replaces uncertainty with intelligence.** 
 
-```mermaid
-flowchart LR
-	U[Client Browser] --> F[Frontend SPA]
-	F -->|JWT Bearer API| B[Express API]
-	F -->|Socket.io| S[Realtime Gateway]
-	B --> M[(MongoDB)]
-	S --> M
-	B --> E[Env Validation + Security Middleware]
-```
+By leveraging proprietary AI (Avora Intelligence) and strict government-level architect verifications, DomeLink ensures that every project is conceptually sound, financially feasible, and perfectly matched to the right studio before a single message is sent.
 
-## Quick Start
+## ✦ Feature Matrix
 
-### 1) Backend
+| Pillar | Features | Tech implementation |
+| :--- | :--- | :--- |
+| **Avora Intelligence**   | Regional cost feasibility, timeline modeling, predictive budget breaking. | `@sentry/node`, `Groq Llama-3`, Redis-like `aiCache`. |
+| **Trust Security Space** | Suspicious request tracking, JWT rotations, aggressive rate limiting.    | `helmet`, `zod`, custom `suspiciousRequestDetector`. |
+| **Cinematic Discovery**  | Smooth Framer Motion transitions, WebGL hero elements, dark mode natively. | `framer-motion`, `@react-three/fiber`, `shadcn/ui`. |
+| **Enterprise Tracking**  | Event logging, conversion tracking, webhook chron-retry handlers.          | `Prisma`, `PostgreSQL`, Background cron workers. |
 
+## ✦ Recruiter / Demo Quick Start
+This ecosystem is completely seeded with interactive demo data to showcase the entire product lifecycle without tedious manual setup.
+
+### Launching the Application
+
+**1. Clone & Install**
 ```bash
+git clone https://github.com/DomeLink/domelink.git
+cd domelink
+
+# Backend
 cd backend
 npm install
 cp .env.example .env
-npm run dev
-```
 
-Runs at `http://localhost:5000`.
-
-### 2) Frontend
-
-```bash
-cd frontend
+# Frontend
+cd ../frontend
 npm install
 cp .env.example .env
+```
+
+**2. Seed the Production Demo Dataset**
+We have included a flawless demo generation script that creates verified architectural profiles, complex residential projects, analytics histories, and pre-calculated AI reports.
+```bash
+cd backend
+npm run prisma:generate  # (Setup Prisma schemas)
+npm run seed             # (Inject the showcase dataset)
+```
+
+**3. Run the Monorepo**
+```bash
+# In backend terminal
+npm run dev
+
+# In frontend terminal
 npm run dev
 ```
 
-Runs at `http://localhost:8080`.
+### Accessing Demo Accounts
+Navigate to `http://localhost:8080/choose` to log in instantly. Use the following seeded accounts:
+* **The Client (Homeowner):** `demo.client@domelink.com`
+* **The Architect (Premium Studio):** `demo.architect@domelink.com`
 
-### 3) Seed Data
+**Password for all demo accounts:** `demo123`
 
-```bash
-cd backend
-npm run seed
-```
+---
 
-## Environment Variables
+## ✦ Architecture Overview
 
-### Backend (`backend/.env`)
+DomeLink handles deep complexity efficiently. The tech stack relies on robust types passing seamlessly from the database to the browser.
+* **Database:** `PostgreSQL` powered by `Prisma ORM`
+* **Backend Engine:** `Node.js` + `Express` + `Zod` (Runtime Validation)
+* **Frontend UI:** `React 18` + `Vite` + `TailwindCSS` + `Radix Primitives`
+* **Realtime Layer:** `Socket.io` (for active consultations and notifications)
 
-- `NODE_ENV` (`development|test|production`)
-- `PORT`
-- `MONGODB_URI`
-- `JWT_SECRET`
-- `JWT_EXPIRES_IN`
-- `FRONTEND_URL`
+👉  **[Read the Full System Architecture Guide](ARCHITECTURE.md)** — Includes deep-dive Mermaid diagrams mapping the AI fallback states, request lifecycles, and database relationships.
 
-### Frontend (`frontend/.env`)
+## ✦ Deployment & Scale
+DomeLink is fully optimized for horizontal scaling and enterprise deployment via Docker and PM2.
 
-- `VITE_API_BASE_URL`
+* **Asset Optimization:** Code-splitting logic groups ThreeJS, Motion, and React runtimes into isolated manual chunks to ensure lightning-fast Time-to-Interactive metrics.
+* **Production Observability:** `Sentry` is globally integrated for both node profiling and browser playback traces.
+* **Resilience:** If the AI provider experiences outages, deterministic fallback algorithms ensure the user never experiences a broken UI.
 
-Both backend and frontend perform startup-time env validation.
-
-## API Surface
-
-- Auth: `/api/auth/register`, `/api/auth/login`, `/api/auth/me`
-- Architects: `/api/architects`, `/api/architects/:slug`, `/api/architects/me`
-- Recommendations: `/api/recommendations`
-- Saved: `/api/saved`, `/api/saved/:architectId`, `/api/saved/my`
-- Consultations: `/api/consultations`, `/api/consultations/my`
-- Chat: `/api/chat/:consultationId`
-- Team: `/api/team`, `/api/team/invite`, `/api/team/:architectId/invites`, `/api/team/invite/:token/accept`
-- Analytics: `/api/analytics`, `/api/analytics/summary`
-
-## Quality Commands
-
-```bash
-# frontend
-npm run lint --prefix frontend
-npm run test --prefix frontend
-npm run build --prefix frontend
-
-# backend
-npm run lint --prefix backend
-npm run build --prefix backend
-```
-
-## Production Readiness Notes
-
-- Helmet, CORS controls, and auth/API rate limiting are enabled.
-- Mongo indexes exist for architects, consultations, chat, and analytics paths.
-- Structured backend error logging is centralized in middleware.
-- Route-level splitting and chunk strategy are configured in Vite.
+---
+<p align="center"><small>DomeLink Platform · For Portfolios, Investors, and Architectural Visionaries · 2026</small></p>

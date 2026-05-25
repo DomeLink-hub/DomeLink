@@ -1,101 +1,219 @@
-
-import { useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Container, Section, Grid } from "@/components/layout/Layout";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PageTransition from "@/components/layout/PageTransition";
-import { api, type AnalyticsSummary } from "@/lib/api";
-import ProjectBrief3D from "@/components/3d/ProjectBrief3D";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import Reveal, { CinematicReveal, StaggerContainer, StaggerItem } from "@/components/animations/Reveal";
+import DomeCTA from "@/components/layout/DomeCTA";
+import { ArrowRight } from "lucide-react";
+
+/* ── Demo data — no API calls needed ─────────────────────────── */
+const DEMO_STATS = [
+  { label: "Verified Architects", value: "1,200+", note: "Government-licensed studios" },
+  { label: "Consultations",       value: "3,400+", note: "Completed across India" },
+  { label: "Avg Response",        value: "3.1h",   note: "First architect shortlist" },
+  { label: "Client Satisfaction", value: "94%",    note: "Post-consultation rating" },
+];
+
+const DEMO_FEATURES = [
+  {
+    label: "Avora Intelligence",
+    description: "AI-powered architectural feasibility engine. Generates cost ranges, complexity scores, and architect tier recommendations from 5 questions.",
+    href: "/homeowner/avora-estimate",
+    cta: "Try Avora Estimate",
+  },
+  {
+    label: "Architect Discovery",
+    description: "Smart matching across 1,200+ verified studios. Filters by city, style, budget, complexity, vastu, and sustainability expertise.",
+    href: "/explore",
+    cta: "Explore Architects",
+  },
+  {
+    label: "Project Copilot",
+    description: "Contextual AI project health engine. Monitors momentum, timeline confidence, communication health, and budget stability in real time.",
+    href: "/homeowner/dashboard",
+    cta: "View Dashboard",
+  },
+  {
+    label: "Trust Ecosystem",
+    description: "Three-tier verification system (Government Verified, Portfolio Reviewed, New Studio) with animated trust score meters and expertise tags.",
+    href: "/find-architects",
+    cta: "Browse Studios",
+  },
+  {
+    label: "Consultation Pipeline",
+    description: "Kanban-style lead management for architects. Inquiry → Qualified → Active Project → Completed, with AI lead scoring on each card.",
+    href: "/architect/dashboard",
+    cta: "Architect View",
+  },
+  {
+    label: "Admin Intelligence",
+    description: "Platform health metrics, verification queue, conversion analytics, webhook monitoring, and upload moderation in one control center.",
+    href: "/admin/dashboard",
+    cta: "Admin View",
+  },
+];
+
+const DEMO_CREDENTIALS = [
+  { role: "Homeowner",  email: "demo.homeowner@domelink.ai",  password: "Demo@2026" },
+  { role: "Architect",  email: "demo.architect@domelink.ai",  password: "Demo@2026" },
+  { role: "Admin",      email: "demo.admin@domelink.ai",      password: "Demo@2026" },
+];
 
 export default function DemoDashboard() {
-  const [stats, setStats] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    api.getAnalyticsSummary()
-      .then((summary: AnalyticsSummary) => {
-        const mapped: Record<string, number> = {};
-        summary.byEvent.forEach(ev => { mapped[ev._id] = ev.count; });
-        setStats({
-          projects: summary.totals,
-          messages: mapped["consultation_start"] || 0,
-          reviews: mapped["review"] || 0,
-          payments: mapped["payment"] || 0,
-          files: mapped["file"] || 0,
-          notifications: mapped["notification"] || 0,
-        });
-      })
-      .catch(() => setError("Failed to load dashboard stats."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const activityData = useMemo(
-    () => [
-      { day: "Mon", value: stats.messages ?? 0 },
-      { day: "Tue", value: (stats.messages ?? 0) + 6 },
-      { day: "Wed", value: (stats.messages ?? 0) + 14 },
-      { day: "Thu", value: (stats.messages ?? 0) + 10 },
-      { day: "Fri", value: (stats.messages ?? 0) + 18 },
-      { day: "Sat", value: (stats.messages ?? 0) + 8 },
-      { day: "Sun", value: (stats.messages ?? 0) + 12 },
-    ],
-    [stats.messages],
-  );
-
   return (
     <PageTransition>
       <Header />
-      <Section>
-        <Container>
-          <h1 className="text-3xl font-extrabold mb-6 flex items-center gap-3">
-            <span className="animate-spin text-cyan-500">📊</span> Demo Dashboard
-          </h1>
-          {loading && <div>Loading...</div>}
-          {error && <div className="text-red-500">{error}</div>}
-          <Grid cols={3} gap="default">
-            <div className="dome-card p-6"><span className="text-caption">Projects</span><div className="text-2xl font-bold">{stats.projects ?? 0}</div></div>
-            <div className="dome-card p-6"><span className="text-caption">Messages</span><div className="text-2xl font-bold">{stats.messages ?? 0}</div></div>
-            <div className="dome-card p-6"><span className="text-caption">Reviews</span><div className="text-2xl font-bold">{stats.reviews ?? 0}</div></div>
-            <div className="dome-card p-6"><span className="text-caption">Payments</span><div className="text-2xl font-bold">{stats.payments ?? 0}</div></div>
-            <div className="dome-card p-6"><span className="text-caption">Files</span><div className="text-2xl font-bold">{stats.files ?? 0}</div></div>
-            <div className="dome-card p-6"><span className="text-caption">Notifications</span><div className="text-2xl font-bold">{stats.notifications ?? 0}</div></div>
-          </Grid>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-8 mt-12">
-            <div className="dome-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-display-sm">Engagement Curve</h2>
-                <span className="text-caption text-muted-foreground">Demo</span>
-              </div>
-              <ChartContainer
-                config={{
-                  value: { label: "Messages", color: "hsl(var(--primary))" },
-                }}
-                className="h-56"
-              >
-                <AreaChart data={activityData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
-                  <CartesianGrid vertical={false} />
-                  <XAxis dataKey="day" tickLine={false} axisLine={false} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
-                </AreaChart>
-              </ChartContainer>
-            </div>
-            <div className="dome-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-display-sm">3D Concept Preview</h2>
-                <span className="text-caption text-muted-foreground">Interactive</span>
-              </div>
-              <ProjectBrief3D plotSize="50x70" style="modern" />
-            </div>
+      <main>
+        {/* Hero */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 z-0">
+            <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1920&q=80"
+              alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-background" />
           </div>
-        </Container>
-      </Section>
+          <div className="relative z-10 pt-40 pb-32 px-6 md:px-10 lg:px-14">
+            <Container>
+              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
+                <p className="text-caption text-white/40 tracking-[0.4em] mb-4">Platform Showcase</p>
+                <h1 className="text-display-lg text-white dome-bracket mb-6">DomeLink Demo</h1>
+                <p className="text-body-lg text-white/60 max-w-2xl mb-10">
+                  An AI-powered architectural ecosystem connecting Indian homeowners with verified studios. Explore the full platform experience below.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <Link to="/signup">
+                    <motion.button className="dome-button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      Create Account <ArrowRight className="w-4 h-4" />
+                    </motion.button>
+                  </Link>
+                  <Link to="/homeowner/avora-estimate">
+                    <motion.button className="dome-button-outline border-white/30 text-white hover:border-white hover:bg-white/10"
+                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      Try Avora Estimate
+                    </motion.button>
+                  </Link>
+                </div>
+              </motion.div>
+            </Container>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <Section padding="small">
+          <Container>
+            <CinematicReveal>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {DEMO_STATS.map(s => (
+                  <div key={s.label} className="dome-card p-6 text-center">
+                    <p className="text-display-md">{s.value}</p>
+                    <p className="text-caption text-muted-foreground mt-2">{s.label}</p>
+                    <p className="text-body-sm text-muted-foreground mt-1">{s.note}</p>
+                  </div>
+                ))}
+              </div>
+            </CinematicReveal>
+          </Container>
+        </Section>
+
+        {/* Feature showcase */}
+        <Section padding="default">
+          <Container>
+            <Reveal>
+              <div className="mb-12">
+                <span className="dome-kicker mb-4">Platform Features</span>
+                <h2 className="text-display-lg dome-bracket">What DomeLink does</h2>
+              </div>
+            </Reveal>
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {DEMO_FEATURES.map(f => (
+                <StaggerItem key={f.label}>
+                  <div className="dome-card p-6 h-full flex flex-col">
+                    <p className="text-caption text-muted-foreground mb-2">{f.label}</p>
+                    <p className="text-body text-muted-foreground flex-1 mb-6">{f.description}</p>
+                    <Link to={f.href}>
+                      <motion.button className="dome-button-outline w-full justify-center"
+                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                        {f.cta}
+                      </motion.button>
+                    </Link>
+                  </div>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          </Container>
+        </Section>
+
+        {/* Demo credentials */}
+        <Section padding="default" className="bg-secondary/20">
+          <Container size="narrow">
+            <Reveal>
+              <div className="mb-8">
+                <span className="dome-kicker mb-4">Demo Access</span>
+                <h2 className="text-display-md dome-bracket">Try the full experience</h2>
+                <p className="text-body text-muted-foreground mt-4">
+                  Use these credentials to explore each role. Data is seeded for demonstration purposes.
+                </p>
+              </div>
+            </Reveal>
+            <div className="space-y-4">
+              {DEMO_CREDENTIALS.map(c => (
+                <Reveal key={c.role}>
+                  <div className="dome-card p-6 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-body font-medium">{c.role}</p>
+                      <p className="text-body-sm text-muted-foreground mt-1">{c.email}</p>
+                      <p className="text-caption text-muted-foreground mt-0.5">Password: {c.password}</p>
+                    </div>
+                    <Link to={`/login?role=${c.role.toLowerCase()}`}>
+                      <motion.button className="dome-button-outline"
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        Sign in as {c.role}
+                      </motion.button>
+                    </Link>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </Container>
+        </Section>
+
+        {/* Tech stack */}
+        <Section padding="default">
+          <Container size="narrow">
+            <Reveal>
+              <div className="mb-8">
+                <span className="dome-kicker mb-4">Architecture</span>
+                <h2 className="text-display-md dome-bracket">Built with</h2>
+              </div>
+            </Reveal>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {[
+                { layer: "Frontend",    stack: "React 18 · TypeScript · Vite · Tailwind CSS · Framer Motion" },
+                { layer: "Backend",     stack: "Node.js · Express · TypeScript · Prisma ORM · PostgreSQL" },
+                { layer: "AI",          stack: "Groq (Llama 3.3 70B) · Avora Intelligence Engine" },
+                { layer: "Storage",     stack: "Cloudinary · Supabase PostgreSQL · MongoDB (legacy)" },
+                { layer: "Payments",    stack: "Razorpay · Webhook verification · Invoice generation" },
+                { layer: "Real-time",   stack: "Socket.io · Presence tracking · Live chat" },
+              ].map(t => (
+                <Reveal key={t.layer}>
+                  <div className="dome-card p-5">
+                    <p className="text-caption text-muted-foreground mb-2">{t.layer}</p>
+                    <p className="text-body-sm">{t.stack}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </Container>
+        </Section>
+
+        <DomeCTA
+          title="Ready to explore the full platform?"
+          subtitle="Sign up as a homeowner to run an Avora estimate, or as an architect to manage your studio pipeline."
+          buttonText="Get Started"
+        />
+      </main>
       <Footer />
     </PageTransition>
   );

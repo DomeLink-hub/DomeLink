@@ -12,6 +12,13 @@ import { useAuth } from "@/hooks/useAuth";
 
 const roleHome = (role: "homeowner" | "architect") => (role === "architect" ? "/architect/dashboard" : "/homeowner/dashboard");
 
+const routeForUser = (user: { role: string; onboardingCompleted?: boolean }) => {
+  const isClient = user.role === "CLIENT" || user.role === "homeowner";
+  if (isClient && user.onboardingCompleted === false) return "/homeowner/onboarding";
+  if (user.role === "ARCHITECT" || user.role === "architect") return "/architect/dashboard";
+  return "/homeowner/dashboard";
+};
+
 const Signup = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,11 +38,20 @@ const Signup = () => {
     setIsSubmitting(true);
     setFormError(null);
     try {
-      await signup(formData.role, formData.name, formData.email, formData.password);
+      const user = await signup(formData.role, formData.name, formData.email, formData.password);
       toast.success("Account created successfully!");
-      navigate(roleHome(formData.role));
+      navigate(routeForUser(user) || roleHome(formData.role));
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : "Unable to create account");
+      const msg =
+        (err as any)?.message ||
+        (err instanceof Error ? err.message : null) ||
+        "Unable to create account.";
+      // 409 = email already exists — give a clear message
+      if ((err as any)?.status === 409) {
+        setFormError("An account with this email already exists. Try signing in instead.");
+      } else {
+        setFormError(msg);
+      }
     } finally {
       setIsSubmitting(false);
     }

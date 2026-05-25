@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { getFilesForArchitect, uploadFile } from "../controllers/file.controller.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { getFilesForArchitect, uploadFile, uploadSharedFile, getSharedFiles } from "../controllers/file.controller.js";
+import { requireAuth, requireRole, authenticate } from "../middleware/auth.js";
 
 import { FileModel } from "../models/File.js";
 
@@ -15,3 +15,9 @@ fileRouter.get("/my", requireAuth, async (req, res) => {
 
 fileRouter.get("/architect/:architectId", requireAuth, getFilesForArchitect);
 fileRouter.post("/architect/:architectId", requireAuth, requireRole(["architect", "admin"]), uploadFile);
+
+// New SharedFile routes
+fileRouter.post("/shared", authenticate, uploadSharedFile);
+fileRouter.get("/shared", authenticate, getSharedFiles);
+
+export default fileRouter;

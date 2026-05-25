@@ -12,10 +12,10 @@ export const getReviewsForArchitect = asyncHandler(async (req: Request, res: Res
 export const createReview = asyncHandler(async (req: Request, res: Response) => {
   const architectId = req.params.architectId;
   const { rating, comment, project } = req.body;
-  if (!req.auth?.sub) throw new AppError("Unauthorized", 401);
+  if (!req.user?.id) throw new AppError("Unauthorized", 401);
   const review = await ReviewModel.create({
     project,
-    reviewer: req.auth.sub,
+    reviewer: req.user.id,
     reviewee: architectId,
     rating,
     comment,

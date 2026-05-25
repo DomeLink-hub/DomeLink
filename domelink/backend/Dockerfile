@@ -27,5 +27,6 @@ RUN npx prisma generate
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD curl -f http://localhost:5000/api/health/readiness || exit 1
 
 CMD ["npm", "start"]

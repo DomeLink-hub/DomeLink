@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useEffect, useMemo, useState } 
 import type { ReactNode } from "react";
 import { api, type ApiUser } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
+import { socket } from "@/lib/socket";
 
 interface AuthContextValue {
   user: ApiUser | null;
@@ -9,8 +10,8 @@ interface AuthContextValue {
   refresh: () => Promise<void>;
   setUser: (user: ApiUser | null) => void;
   logout: () => Promise<void>;
-  login: (role: "homeowner" | "architect", email: string, password: string) => Promise<void>;
-  signup: (role: "homeowner" | "architect", name: string, email: string, password: string) => Promise<void>;
+  login: (role: "homeowner" | "architect", email: string, password: string) => Promise<ApiUser>;
+  signup: (role: "homeowner" | "architect", name: string, email: string, password: string) => Promise<ApiUser>;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -25,21 +26,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refresh = useCallback(async () => {
     const token = localStorage.getItem("domelink_token");
     
-    if (!token || token === "undefined") {
+    // No token at all — skip the network call entirely
+    if (!token || token === "undefined" || token === "null") {
       setUser(null);
       setLoading(false);
       return;
     }
 
     try {
-      // Fetch the user profile. 
-      // NOTE: If your api.ts file calls this `getMe()` instead of `me()`, change it here!
       const profile = await api.me(); 
       setUser(profile.user);
-    } catch (error) {
-      // THE FIX: Stop failing silently! Log the error so we can see what's wrong.
-      console.error("Session Refresh Failed. The token might be invalid or the backend rejected it:", error);
-      
+    } catch (error: any) {
+      // Only log unexpected errors — 401 on startup is normal when token is expired
+      if (error?.status !== 401) {
+        console.error("Session refresh failed:", error);
+      }
       api.clearToken();
       setUser(null);
     } finally {
@@ -56,6 +57,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     api.clearToken();
     setUser(null);
     queryClient.clear();
+    // Redirect to homepage — window.location ensures stale React state is fully cleared
+    window.location.replace("/");
   }, [queryClient]);
 
   const login = useCallback(
@@ -63,6 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const result = await api.login({ email, password });
       api.setToken(result.token);
       setUser(result.user);
+      return result.user;
     },
     []
   );
@@ -81,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       api.setToken(result.token);
       setUser(result.user);
+      return result.user;
     },
     []
   );
@@ -88,6 +93,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const userId = user?._id;
+    if (!userId) {
+      socket.disconnect();
+      return;
+    }
+
+    socket.connect();
+    socket.emit("join_user", { userId });
+
+    return () => {
+      socket.emit("leave_user", { userId });
+    };
+  }, [user?._id]);
 
   const value = useMemo(
     () => ({ user, loading, refresh, setUser, logout, login, signup }),

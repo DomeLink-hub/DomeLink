@@ -26,14 +26,54 @@ export interface File {
   createdAt: string;
 }
 export interface Payment {
-  _id: string;
-  project: string;
-  payer: string;
-  payee: string;
+  id?: string;
+  _id?: string;
+  project?: string;
+  payer?: string;
+  payee?: string;
+  payerId?: string;
+  payeeId?: string;
   amount: number;
-  status: "pending" | "completed" | "failed";
-  method: "card" | "bank" | "cash";
+  status: string;
+  method?: string;
+  purpose?: string;
+  currency?: string;
+  metadata?: Record<string, unknown>;
   createdAt: string;
+}
+
+export interface RazorpayOrderResponse {
+  orderId: string;
+  amount: number;
+  currency: string;
+  key: string;
+}
+export interface ClientLead {
+  id: string;
+  city: string | null;
+  projectType: string | null;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  plotSize: number | null;
+  styleTags: string[];
+  timeline: string | null;
+  familySize: number | null;
+  createdAt: string;
+  avoraScore?: number | null;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  userId: string;
+  paymentId?: string;
+  amount: number;
+  currency: string;
+  pdfUrl?: string;
+  issuedAt: string;
+  metadata?: any;
+  createdAt: string;
+  updatedAt: string;
 }
 export interface Review {
   _id: string;
@@ -46,23 +86,103 @@ export interface Review {
 }
 
 
+export interface ProjectHealthReport {
+  riskScore: number;
+  timelineConfidence: number;
+  communicationHealth: number;
+  budgetStability: number;
+  momentumScore: number;
+  completionProbability: number;
+  overallHealth: "Healthy" | "Needs Attention" | "At Risk" | "Critical";
+  copilotInsights: string[];
+  nextActions: string[];
+  summary: string;
+}
+
+export interface AvoraReport {
+  costRange: { min: number; max: number; currency: string };
+  complexityScore: number;
+  readinessScore: number;
+  estimatedTimeline: string;
+  architectTier: string;
+  spacePlanning: string[];
+  climateSuggestions: string[];
+  sustainabilitySuggestions: string[];
+  materialRecommendations: string[];
+  interiorDirection: string;
+  riskFactors: string[];
+  budgetFeasibility: string;
+  constructionDifficulty: string;
+  designSummary: string;
+  consultationPath: string;
+  nextActions: string[];
+  aiBudgetBreakdown: {
+    construction: number;
+    architecture: number;
+    interiors: number;
+    addOns: number;
+    total: number;
+    builtUpArea: number;
+    psfRate: number;
+    breakdown: {
+      structure: number;
+      finishing: number;
+      mep: number;
+      facade: number;
+      landscape: number;
+      addOns: number;
+    };
+  };
+}
+
+export interface AvoraEstimate {
+  id: string;
+  homeownerId: string;
+  city: string;
+  plotSize: number;
+  floors: number;
+  architectureStyle?: string;
+  interiorTier?: string;
+  report?: AvoraReport;
+  status: string;
+  createdAt: string;
+}
+
 import { frontendEnv } from "@/lib/env";
 
 export interface ApiUser {
   id: string;
   name: string;
   email: string;
-  role: "homeowner" | "architect" | "admin";
+  role: "homeowner" | "architect" | "admin" | "CLIENT" | "ARCHITECT" | "ADMIN" | "SUPERADMIN";
   avatar?: string;
+  onboardingCompleted?: boolean;
+  city?: string;
+  projectType?: string;
+  plotSize?: number;
+  budgetMin?: number;
+  budgetMax?: number;
+  preferredStyles?: unknown;
+  vastuPreference?: boolean;
+  timeline?: string;
+  familySize?: number;
+  projectStage?: string;
+  designStyles?: unknown;
 }
 
 export interface ArchitectProject {
   id: string;
   title: string;
-  image: string;
+  image?: string;
+  images?: string[];
   location: string;
   year: string;
   area?: string;
+  description?: string;
+  style?: string;
+  projectType?: string;
+  clientName?: string;
+  featured?: boolean;
 }
 
 export interface ArchitectTemplate {
@@ -82,15 +202,82 @@ export interface Architect {
   startingPrice: number;
   about: string;
   heroImage: string;
-  profileImage: string;
+  profileImage?: string;
   projects: ArchitectProject[];
   templates: ArchitectTemplate[];
   experience: string;
   teamSize: number;
+  isVerified?: boolean;
+  isFeatured?: boolean;
+  consultationFee?: number;
+  completedProjects?: number;
+  reviewCount?: number;
+  trustScore?: number;
+  designStyles?: string[];
+  projectTypes?: string[];
+  citiesServed?: string[];
+  servicesOffered?: string[];
+  portfolioProjects?: ArchitectProject[];
+  recommendationReason?: string;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  title: string;
+  description?: string | null;
+  status: "pending" | "in_progress" | "completed" | "blocked" | string;
+  dueDate?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  description?: string | null;
+  status: string;
+  progress?: number;
+  estimatedBudget?: number | null;
+  estimatedTime?: string | null;
+  consultation?: {
+    user?: { id: string; name: string; avatar?: string | null };
+    architect?: { id: string; name: string; avatar?: string | null; slug?: string | null };
+  };
+  milestones?: ProjectMilestone[];
+}
+
+export interface BudgetRealityResult {
+  estimatedConstructionCost: number;
+  architectFeeEstimate: number;
+  interiorsEstimate: number;
+  totalEstimatedCost: number;
+  estimatedProjectTimelineMonths: number;
+  recommendedArchitectCategories: string[];
+  builtUpArea: number;
+  psfRate: number;
+}
+
+export interface ConsultationSummaryResult {
+  summary: string;
+  leadScore: number;
+  nextBestAction: string;
+}
+
+export interface ProjectSummaryResult {
+  readinessScore: number;
+  summary: string;
+  stylisticMatch: string;
+  nextBestAction: string;
+}
+
+export interface ProjectHealthInsight {
+  healthTag: string;
+  singleLineSummary: string;
 }
 
 export interface Consultation {
   _id: string;
+  id?: string;
   userId: ApiUser;
   architectId: Pick<Architect, "_id" | "name" | "slug" | "specialty">;
   message: string;
@@ -100,7 +287,7 @@ export interface Consultation {
   plotSize?: string;
   preferredStyle?: string;
   location?: string;
-  status: "pending" | "active" | "closed" | "accepted" | "completed" | "rejected";
+  status: "pending" | "active" | "closed" | "accepted" | "completed" | "rejected" | "PENDING" | "ACCEPTED" | "IN_PROGRESS" | "REVIEW_PENDING" | "COMPLETED" | "CANCELLED";
   amount: number;
   createdAt: string;
 }
@@ -108,11 +295,15 @@ export interface Consultation {
 export interface Notification {
   _id: string;
   user: string;
-  type: "message" | "project" | "review" | "system";
+  type: "message" | "project" | "review" | "system" | "consultation_status" | "lead_interest";
   title: string;
   body: string;
   read: boolean;
   createdAt: string;
+}
+
+export interface NotificationCount {
+  unreadCount: number;
 }
 export interface ProjectBrief {
   _id: string;
@@ -134,12 +325,41 @@ export interface ProjectBrief {
 // All interfaces above this line
 
 export interface ChatMessage {
-  _id: string;
+  _id?: string;
+  id?: string;
   consultationId: string;
-  senderId: { _id: string; name: string; role: string; avatar?: string };
+  senderId?: { _id: string; name: string; role: string; avatar?: string };
+  sender?: { id: string; name: string; role: string; avatar?: string };
   message: string;
   timestamp: string;
   readBy: Array<{ userId: string; readAt: string }>;
+}
+
+export interface SavedByClient {
+  userId: string;
+  city?: string | null;
+  projectType?: string | null;
+  budgetRange?: { min?: number | null; max?: number | null };
+  styleTags?: string[];
+  savedAt: string;
+}
+
+export interface ChatConversationItem {
+  _id: string;
+  id?: string;
+  status: string;
+  projectType?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; name: string; avatar?: string | null; role: string; city?: string | null; projectType?: string | null };
+  architect: { id: string; name: string; avatar?: string | null; role: string; city?: string | null; specialty?: string | null };
+  lastMessage?: {
+    id: string;
+    message: string;
+    timestamp: string;
+    sender: { id: string; name: string; role: string; avatar?: string | null };
+  } | null;
+  unreadCount: number;
 }
 
 export interface GroupedChatResponse {
@@ -248,6 +468,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
+    credentials: "include",
   });
 
   let payload;
@@ -258,19 +479,49 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    const errorObj = {
-      status: response.status,
-      message: payload.error || payload.message || "Request failed",
-      details: payload,
-    };
+    const err = new Error(payload.error || payload.message || "Request failed") as Error & { status: number; details: unknown };
+    err.status = response.status;
+    err.details = payload;
 
-    // HARDENED EJECTOR SEAT: 
-    // Only wipe the token if the primary auth verification fails.
-    // This prevents a random broken endpoint (like /api/notifications) from logging you out.
-    if (response.status === 401 && path === "/api/users/me") {
-      api.clearToken();
+    // Only attempt token refresh for authenticated endpoints, not for auth endpoints themselves
+    if (response.status === 401 && !path.startsWith("/api/auth/")) {
+      try {
+        const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (refreshRes.ok) {
+          const data = await refreshRes.json().catch(() => null) as any;
+          if (data?.token) {
+            api.setToken(data.token);
+            // Retry original request with new token
+            const retryHeaders = new Headers(options.headers);
+            retryHeaders.set("Content-Type", "application/json");
+            retryHeaders.set("Authorization", `Bearer ${data.token}`);
+            const retry = await fetch(`${API_BASE_URL}${path}`, {
+              ...options,
+              headers: retryHeaders,
+              credentials: "include",
+            });
+            const retryPayload = await retry.json().catch(() => ({}));
+            if (!retry.ok) {
+              const retryErr = new Error(retryPayload.error || retryPayload.message || "Request failed") as Error & { status: number };
+              retryErr.status = retry.status;
+              throw retryErr;
+            }
+            return retryPayload as T;
+          }
+        }
+      } catch (refreshErr: any) {
+        if (refreshErr?.status !== 401) {
+          console.error("Token refresh failed:", refreshErr);
+        }
+        api.clearToken();
+      }
     }
-    throw errorObj;
+
+    throw err;
   }
 
   if (response.status === 204) {
@@ -288,16 +539,109 @@ export const api = {
     return request<BlogPost[]>("/api/blog/my");
   },
   getFiles() {
-    return request<File[]>("/api/files/my");
+    return request<File[]>("/api/storage/assets");
+  },
+
+  uploadFile(file: globalThis.File, scope: string = "project") {
+    const token = getToken();
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    const fd = new FormData();
+    fd.append("file", file, file.name);
+    fd.append("scope", scope);
+
+    return fetch(`${API_BASE_URL}/api/storage/upload`, {
+      method: "POST",
+      headers,
+      body: fd,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw { status: res.status, message: err.error || err.message || "Upload failed" };
+      }
+      return res.json();
+    });
   },
   getPayments() {
     return request<Payment[]>("/api/payments/my");
+  },
+  createPaymentOrder(payload: {
+    amount: number;
+    planName: string;
+    architectId: string;
+    consultationId?: string;
+  }) {
+    return request<RazorpayOrderResponse>("/api/payments/create-order", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  verifyBookingPayment(payload: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }) {
+    return request<{ ok: boolean; payment: Payment; status?: string }>("/api/payments/verify", {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        purpose: "consultation",
+      }),
+    });
+  },
+  createConsultationPayment(payload: {
+    architectId?: string;
+    consultationId?: string;
+    amount: number;
+    currency?: string;
+  }) {
+    return request<{ payment: Payment; order: { id: string } }>("/api/payments/consultation", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  verifyPayment(payload: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+    purpose: "consultation" | "subscription" | "featured";
+    tier?: string;
+    architectId?: string;
+    consultationId?: string;
+  }) {
+    return request<{ ok: boolean; payment: Payment }>("/api/payments/verify", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  getClientLeads(params?: { city?: string; budgetMin?: number; budgetMax?: number }) {
+    const search = new URLSearchParams();
+    if (params?.city) search.set("city", params.city);
+    if (params?.budgetMin !== undefined) search.set("budgetMin", String(params.budgetMin));
+    if (params?.budgetMax !== undefined) search.set("budgetMax", String(params.budgetMax));
+    const suffix = search.toString() ? `?${search.toString()}` : "";
+    return request<ClientLead[]>(`/api/leads${suffix}`);
+  },
+  expressInterestInLead(userId: string) {
+    return request<{ ok: boolean }>(`/api/leads/${userId}/interest`, {
+      method: "POST",
+    });
+  },
+  getInvoices() {
+    return request<Invoice[]>('/api/payments/invoices');
   },
   setToken(token: string) {
     localStorage.setItem("domelink_token", token);
   },
   clearToken() {
     localStorage.removeItem("domelink_token");
+  },
+  post<T = unknown>(path: string, body: unknown) {
+    return request<T>(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   },
   login(payload: { email: string; password: string }) {
     return request<{ token: string; user: ApiUser }>("/api/auth/login", {
@@ -325,11 +669,25 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
-  getArchitects(params?: { minRating?: number; minBudget?: number; maxBudget?: number }) {
+  getArchitects(params?: {
+    minRating?: number;
+    minBudget?: number;
+    maxBudget?: number;
+    city?: string;
+    style?: string;
+    projectType?: string;
+    verified?: boolean;
+    featured?: boolean;
+  }) {
     const search = new URLSearchParams();
     if (params?.minRating) search.set("minRating", String(params.minRating));
     if (params?.minBudget) search.set("minBudget", String(params.minBudget));
     if (params?.maxBudget) search.set("maxBudget", String(params.maxBudget));
+    if (params?.city) search.set("city", params.city);
+    if (params?.style) search.set("style", params.style);
+    if (params?.projectType) search.set("projectType", params.projectType);
+    if (params?.verified !== undefined) search.set("verified", String(params.verified));
+    if (params?.featured !== undefined) search.set("featured", String(params.featured));
     const suffix = search.toString() ? `?${search.toString()}` : "";
     return request<Architect[]>(`/api/architects${suffix}`);
   },
@@ -339,6 +697,10 @@ export const api = {
     plotSize?: string;
     style?: string;
     location?: string;
+    city?: string;
+    projectType?: string;
+    verified?: boolean;
+    featured?: boolean;
   }) {
     const search = new URLSearchParams();
     if (params?.budgetMin) search.set("budgetMin", String(params.budgetMin));
@@ -346,6 +708,10 @@ export const api = {
     if (params?.plotSize) search.set("plotSize", params.plotSize);
     if (params?.style) search.set("style", params.style);
     if (params?.location) search.set("location", params.location);
+    if (params?.city) search.set("city", params.city);
+    if (params?.projectType) search.set("projectType", params.projectType);
+    if (params?.verified !== undefined) search.set("verified", String(params.verified));
+    if (params?.featured !== undefined) search.set("featured", String(params.featured));
     const suffix = search.toString() ? `?${search.toString()}` : "";
     return request<Architect[]>(`/api/recommendations${suffix}`);
   },
@@ -355,6 +721,15 @@ export const api = {
     plotSize?: string;
     style?: string;
     location?: string;
+    city?: string;
+    projectType?: string;
+    verified?: boolean;
+    featured?: boolean;
+    complexityScore?: number;
+    interiorTier?: string;
+    architectTier?: string;
+    vastu?: boolean;
+    sustainability?: boolean;
   }) {
     const search = new URLSearchParams();
     if (params?.budgetMin) search.set("budgetMin", String(params.budgetMin));
@@ -362,11 +737,76 @@ export const api = {
     if (params?.plotSize) search.set("plotSize", params.plotSize);
     if (params?.style) search.set("style", params.style);
     if (params?.location) search.set("location", params.location);
+    if (params?.city) search.set("city", params.city);
+    if (params?.projectType) search.set("projectType", params.projectType);
+    if (params?.verified !== undefined) search.set("verified", String(params.verified));
+    if (params?.featured !== undefined) search.set("featured", String(params.featured));
+    if (params?.complexityScore) search.set("complexityScore", String(params.complexityScore));
+    if (params?.interiorTier) search.set("interiorTier", params.interiorTier);
+    if (params?.architectTier) search.set("architectTier", params.architectTier);
+    if (params?.vastu) search.set("vastu", "true");
+    if (params?.sustainability) search.set("sustainability", "true");
     const suffix = search.toString() ? `?${search.toString()}` : "";
     return request<{ source: string; recommendations: Architect[] }>(`/api/recommendations/homeowner${suffix}`);
   },
   getArchitectBySlug(slug: string) {
     return request<Architect>(`/api/architects/${slug}`);
+  },
+  summarizeConsultation(consultation: unknown) {
+    return request<ConsultationSummaryResult>("/api/ai/summarize-consultation", {
+      method: "POST",
+      body: JSON.stringify({ consultation }),
+    });
+  },
+  summarizeProject(project: unknown) {
+    return request<ProjectSummaryResult>("/api/ai/summarize-project", {
+      method: "POST",
+      body: JSON.stringify({ project }),
+    });
+  },
+  getProjectHealthInsight(project: unknown) {
+    return request<ProjectHealthInsight>("/api/ai/project-health", {
+      method: "POST",
+      body: JSON.stringify({ project }),
+    });
+  },
+  getBudgetReality(payload: {
+    city: string;
+    projectType: string;
+    plotArea: number;
+    floors: number;
+    qualityTier: "economy" | "standard" | "premium" | "luxury";
+    interiors: boolean;
+    vastu: boolean;
+  }) {
+    return request<BudgetRealityResult>("/api/ai/budget", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  getMyProjects() {
+    return request<Project[]>("/api/projects/my");
+  },
+  getProjectDetails(projectId: string) {
+    return request<Project>(`/api/projects/${projectId}`);
+  },
+  createProject(payload: { consultationId: string; title: string; description: string; estimatedBudget?: number; estimatedTime?: string }) {
+    return request<Project>("/api/projects", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  createMilestone(projectId: string, payload: { title: string; description?: string; dueDate?: string }) {
+    return request<ProjectMilestone>(`/api/projects/${projectId}/milestone`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  updateMilestoneStatus(milestoneId: string, status: ProjectMilestone["status"]) {
+    return request<ProjectMilestone>(`/api/projects/milestone/${milestoneId}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
   },
   getMyArchitect() {
     return request<Architect>("/api/architects/me");
@@ -375,7 +815,14 @@ export const api = {
     return request<ArchitectStats>("/api/architects/me/stats");
   },
   getConsultations() {
-    return request<Consultation[]>("/api/consultations/my");
+    return request<any[]>("/api/consultations/my").then((rows) =>
+      rows.map((row) => ({
+        ...row,
+        _id: row._id || row.id,
+        userId: row.userId || row.user,
+        architectId: row.architectId || row.architect,
+      })) as Consultation[],
+    );
   },
   getMyProjectBriefs() {
     return request<ProjectBrief[]>("/api/project-briefs/my");
@@ -402,12 +849,33 @@ export const api = {
     preferredStyle?: string;
     location?: string;
   }) {
-    return request<Consultation>("/api/consultations", {
+    return request<any>("/api/consultations", {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+    }).then((row) => ({
+      ...row,
+      _id: row._id || row.id,
+    }) as Consultation);
   },
-  updateConsultationStatus(consultationId: string, status: Consultation["status"]) {
+  updateConsultationStatus(
+    consultationId: string,
+    status: "accepted" | "rejected" | "start" | "complete" | "cancel" | Consultation["status"],
+  ) {
+    const action = String(status).toLowerCase();
+
+    if (action === "accepted") {
+      return request<Consultation>(`/api/consultations/${consultationId}/accept`, { method: "PATCH" });
+    }
+    if (action === "start") {
+      return request<Consultation>(`/api/consultations/${consultationId}/start`, { method: "PATCH" });
+    }
+    if (action === "complete") {
+      return request<Consultation>(`/api/consultations/${consultationId}/complete`, { method: "PATCH" });
+    }
+    if (action === "cancel" || action === "rejected") {
+      return request<Consultation>(`/api/consultations/${consultationId}/cancel`, { method: "PATCH" });
+    }
+
     return request<Consultation>(`/api/consultations/${consultationId}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
@@ -416,11 +884,14 @@ export const api = {
   getChat(consultationId: string) {
     return request<ChatMessage[]>(`/api/chat/${consultationId}`);
   },
+  getChatConversations() {
+    return request<ChatConversationItem[]>("/api/chat/conversations");
+  },
   getChatGrouped(consultationId: string) {
     return request<GroupedChatResponse>(`/api/chat/${consultationId}/grouped`);
   },
   sendChat(consultationId: string, message: string) {
-    return request<ChatMessage>(`/api/chat/${consultationId}`, {
+    return request<ChatMessage>(`/api/chat/${consultationId}/messages`, {
       method: "POST",
       body: JSON.stringify({ message }),
     });
@@ -432,6 +903,14 @@ export const api = {
   },
   getSavedArchitects() {
     return request<Architect[]>("/api/saved/my");
+  },
+  getMySavers() {
+    return request<SavedByClient[]>("/api/saved/my-savers");
+  },
+  startConversationWithSaver(userId: string) {
+    return request<Consultation>(`/api/saved/my-savers/${userId}/conversation`, {
+      method: "POST",
+    });
   },
   saveArchitect(architectId: string) {
     return request<{ ok: boolean }>("/api/saved", {
@@ -504,6 +983,9 @@ export const api = {
   getAdminUsers() {
     return request<AdminUser[]>("/api/admin/users");
   },
+  getAdminBilling() {
+    return request<{ payments: Payment[]; subscriptions: any[]; featuredPlacements: any[]; uploads: any[] }>("/api/admin/billing");
+  },
   updateAdminUserStatus(userId: string, status: AdminUser["status"]) {
     return request<AdminUser>(`/api/admin/users/${userId}/status`, {
       method: "PATCH",
@@ -521,6 +1003,31 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
+  },
+  moderateUpload(assetId: string, isApproved: boolean) {
+    return request<any>(`/api/admin/uploads/${assetId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isApproved }),
+    });
+  },
+  manageFeaturedPlacement(placementId: string, isActive: boolean, rank?: number) {
+    return request<any>(`/api/admin/featured/${placementId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive, rank }),
+    });
+  },
+  // Admin webhook management
+  getWebhooks(page = 1, limit = 50) {
+    return request<{ items: any[]; total: number; page: number; limit: number }>(`/api/admin/webhooks?page=${page}&limit=${limit}`);
+  },
+  getWebhook(webhookId: string) {
+    return request<any>(`/api/admin/webhooks/${webhookId}`);
+  },
+  replayWebhook(webhookId: string) {
+    return request<any>(`/api/admin/webhooks/${webhookId}/replay`, { method: "POST" });
+  },
+  getWebhookReplays(webhookId: string) {
+    return request<any[]>(`/api/admin/webhooks/${webhookId}/replays`);
   },
   checkBudgetReality(payload: { budget: number; plotSize: string; projectType: string }) {
     return request<{ message: string; suggestions?: string[]; error?: string }>("/api/budget/reality-check", {
@@ -545,9 +1052,45 @@ export const api = {
   getNotifications() {
     return request<Notification[]>("/api/notifications/my");
   },
+  getNotificationCount() {
+    return request<NotificationCount>("/api/notifications/count");
+  },
   markNotificationRead(notificationId: string) {
     return request<Notification>(`/api/notifications/${notificationId}/read`, {
       method: "PATCH",
+    });
+  },
+  generateAvoraEstimate(payload: {
+    city: string; locationType?: string; plotSize: number; builtUpArea?: number;
+    floors: number; timeline?: string; familySize?: number; architectureStyle?: string;
+    lifestyleFeatures?: string[]; interiorTier?: string; vastuRequired?: boolean;
+    prayerRoom?: boolean; courtyard?: boolean; budgetMin?: number; budgetMax?: number;
+    budgetFlexibility?: string; materialPreference?: string;
+  }) {
+    return request<{ id: string; report: AvoraReport }>("/api/ai/avora-estimate", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  getAvoraEstimates() {
+    return request<AvoraEstimate[]>("/api/ai/avora-estimates");
+  },
+  getProjectHealth(context: {
+    projectTitle?: string; status?: string; progress?: number;
+    estimatedBudget?: number; estimatedTime?: string;
+    milestones?: Array<{ title: string; status: string; dueDate?: string }>;
+    consultationCount?: number; lastActivityDaysAgo?: number;
+    architectureStyle?: string; complexity?: number;
+  }) {
+    return request<ProjectHealthReport>("/api/ai/project-health", {
+      method: "POST",
+      body: JSON.stringify(context),
+    });
+  },
+  generateConsultationBrief(consultation: unknown) {
+    return request<{ brief: string }>("/api/ai/consultation-brief", {
+      method: "POST",
+      body: JSON.stringify({ consultation }),
     });
   },
 };

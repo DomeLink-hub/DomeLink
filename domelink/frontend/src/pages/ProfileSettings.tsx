@@ -82,18 +82,18 @@ const ProfileSettings = () => {
 
         <Section padding="small">
           <Container size="narrow">
-            <form onSubmit={handleSubmit} className="space-y-6 bg-background/50 p-8 rounded-2xl border border-border/40">
+            <form onSubmit={handleSubmit} className="space-y-6 dome-card p-8">
               
               {/* Universal Fields */}
               <div className="space-y-4">
-                <h3 className="text-display-xs">Basic Info</h3>
+                <h3 className="text-display-sm">Basic Info</h3>
                 <div>
                   <label className="text-caption text-muted-foreground block mb-2">Full Name</label>
                   <input
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                    className="dome-input"
                     required
                   />
                 </div>
@@ -102,7 +102,7 @@ const ProfileSettings = () => {
               {/* Architect Specific Fields */}
               {user.role === "ARCHITECT" && (
                 <div className="space-y-4 pt-6 border-t border-border/40">
-                  <h3 className="text-display-xs">Public Architect Profile</h3>
+                  <h3 className="text-display-sm">Public Architect Profile</h3>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -112,7 +112,7 @@ const ProfileSettings = () => {
                         value={formData.location}
                         onChange={handleChange}
                         placeholder="e.g. New York, NY"
-                        className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                        className="dome-input"
                       />
                     </div>
                     <div>
@@ -122,7 +122,7 @@ const ProfileSettings = () => {
                         value={formData.specialty}
                         onChange={handleChange}
                         placeholder="e.g. Modern Residential"
-                        className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                        className="dome-input"
                       />
                     </div>
                     <div>
@@ -133,7 +133,7 @@ const ProfileSettings = () => {
                         value={formData.startingPrice}
                         onChange={handleChange}
                         placeholder="50000"
-                        className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                        className="dome-input"
                       />
                     </div>
                     <div>
@@ -144,7 +144,7 @@ const ProfileSettings = () => {
                         value={formData.teamSize}
                         onChange={handleChange}
                         placeholder="5"
-                        className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none"
+                        className="dome-input"
                       />
                     </div>
                   </div>
@@ -156,7 +156,7 @@ const ProfileSettings = () => {
                       value={formData.about}
                       onChange={handleChange}
                       rows={4}
-                      className="w-full px-4 py-3 bg-secondary rounded-lg focus:outline-none resize-none"
+                      className="dome-input min-h-[120px] resize-none"
                     />
                   </div>
                 </div>

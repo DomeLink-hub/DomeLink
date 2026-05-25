@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Container, Section } from "@/components/layout/Layout";
@@ -6,182 +8,210 @@ import PageTransition from "@/components/layout/PageTransition";
 import DomeHero from "@/components/layout/DomeHero";
 import DomeCTA from "@/components/layout/DomeCTA";
 import DomeTimeline from "@/components/layout/DomeTimeline";
-import { motion } from "framer-motion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { useAuth } from "@/context/useAuthContext";
+import {
+  STANDARD_PLANS,
+  PREMIUM_PLANS,
+  formatPlanInr,
+  type PricingPlan,
+} from "@/lib/pricingPlans";
+
+function PlanCard({ plan, ctaHref }: { plan: PricingPlan; ctaHref: string }) {
+  return (
+    <Reveal>
+      <div className="dome-card p-6 md:p-8 h-full flex flex-col">
+        <div className="flex-1">
+          <p className="text-caption text-muted-foreground mb-1">{plan.subtitle}</p>
+          <h3 className="text-display-sm mb-4">{plan.name}</h3>
+          <p className="text-display-lg text-primary mb-2">{formatPlanInr(plan.priceInr)}</p>
+          <p className="text-body-sm text-muted-foreground mb-6">
+            Max {plan.maxSqFt.toLocaleString("en-IN")} sq ft · +{formatPlanInr(plan.perFloorInr)} per additional floor
+          </p>
+
+          <Accordion type="single" collapsible>
+            <AccordionItem value="breakdown" className="border-border/50">
+              <AccordionTrigger className="text-caption text-muted-foreground py-3 hover:no-underline">
+                View fee breakdown
+              </AccordionTrigger>
+              <AccordionContent>
+                <ul className="space-y-2 text-body-sm text-muted-foreground pb-2">
+                  <li className="flex justify-between gap-4">
+                    <span>Architect fee</span>
+                    <span className="text-foreground">{formatPlanInr(plan.breakdown.architect)}</span>
+                  </li>
+                  <li className="flex justify-between gap-4">
+                    <span>Platform fee</span>
+                    <span className="text-foreground">{formatPlanInr(plan.breakdown.platform)}</span>
+                  </li>
+                  <li className="flex justify-between gap-4">
+                    <span>Marketing</span>
+                    <span className="text-foreground">{formatPlanInr(plan.breakdown.marketing)}</span>
+                  </li>
+                  <li className="flex justify-between gap-4">
+                    <span>Support</span>
+                    <span className="text-foreground">{formatPlanInr(plan.breakdown.support)}</span>
+                  </li>
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+
+        <Link to={ctaHref} className="mt-6 block">
+          <motion.button
+            className="dome-button w-full"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Get Started
+          </motion.button>
+        </Link>
+      </div>
+    </Reveal>
+  );
+}
 
 const Pricing = () => {
+  const { user } = useAuth();
+  const isHomeowner = user?.role === "CLIENT" || user?.role === "homeowner";
+  const ctaHref = user && isHomeowner ? "/explore" : "/signup?role=homeowner";
+
   return (
     <PageTransition>
       <Header />
       <main>
         <DomeHero
           kicker="Pricing"
-          title="Simple, transparent pricing"
-          subtitle="Connect with world-class architects through our pay-per-chat model, or unlock unlimited access with our premium subscription."
+          title="Consultation packages for every home"
+          subtitle="Transparent Indian-market pricing from starter plots to ultra-luxury estates. Pay once to unlock your architect consultation on DomeLink."
           imageUrl="https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1920&q=80"
           align="center"
           className="pt-20"
         />
 
-        {/* Pricing Options */}
         <Section padding="small">
           <Container>
-            <div className="dome-timeline">
-              <div className="dome-timeline-item">
-                <span className="text-caption text-muted-foreground block mb-3">
-                  Pay Per Conversation
-                </span>
-                <h2 className="text-display-md mb-2">Chat Access</h2>
-                <div className="text-display-lg mb-6">$49</div>
-                <ul className="space-y-3 mb-8">
-                  <PricingFeature>Direct access to one architect</PricingFeature>
-                  <PricingFeature>7 days of unlimited messaging</PricingFeature>
-                  <PricingFeature>Initial project consultation</PricingFeature>
-                  <PricingFeature>Portfolio & template access</PricingFeature>
-                </ul>
-                <motion.a
-                  href="/explore"
-                  className="dome-button-outline justify-center"
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                >
-                  Browse Architects
-                </motion.a>
+            <Reveal>
+              <div className="dome-panel p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
+                <div className="max-w-xl">
+                  <p className="text-caption text-muted-foreground mb-2">Avora Intelligence</p>
+                  <h2 className="text-display-md dome-bracket">Project estimates before you book</h2>
+                  <p className="text-body text-muted-foreground mt-4">
+                    Run Avora for construction feasibility, then pick a consultation package below to connect with a verified architect.
+                  </p>
+                </div>
+                <div className="flex-shrink-0">
+                  {isHomeowner ? (
+                    <Link to="/homeowner/avora-estimate">
+                      <motion.button
+                        className="dome-button px-8 py-4 text-base"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Start Avora Estimate
+                      </motion.button>
+                    </Link>
+                  ) : (
+                    <Link to="/signup?role=homeowner">
+                      <motion.button
+                        className="dome-button px-8 py-4 text-base"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Sign up to estimate
+                      </motion.button>
+                    </Link>
+                  )}
+                </div>
               </div>
-              <div className="dome-timeline-item">
-                <span className="text-caption text-muted-foreground block mb-3">
-                  Premium Subscription
-                </span>
-                <h2 className="text-display-md mb-2">Unlimited</h2>
-                <div className="text-display-lg mb-2">$199</div>
-                <span className="text-body-sm text-muted-foreground mb-6 block">per month</span>
-                <ul className="space-y-3 mb-8">
-                  <PricingFeature>Unlimited architect conversations</PricingFeature>
-                  <PricingFeature>Priority response from architects</PricingFeature>
-                  <PricingFeature>Exclusive portfolio previews</PricingFeature>
-                  <PricingFeature>Video consultation scheduling</PricingFeature>
-                  <PricingFeature>Dedicated account manager</PricingFeature>
-                  <PricingFeature>Early access to new architects</PricingFeature>
-                </ul>
-                <motion.button
-                  className="dome-button justify-center"
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                >
-                  Coming Soon
-                </motion.button>
+            </Reveal>
+          </Container>
+        </Section>
+
+        <Section padding="small">
+          <Container>
+            <Reveal>
+              <div className="mb-10">
+                <span className="dome-kicker">Group 1</span>
+                <h2 className="text-display-lg dome-bracket mt-4">Standard — accessible design access</h2>
+                <p className="text-body text-muted-foreground mt-4 max-w-2xl">
+                  Built for emerging homeowners and middle-income families starting their architectural journey.
+                </p>
               </div>
+            </Reveal>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {STANDARD_PLANS.map((plan) => (
+                <PlanCard key={plan.id} plan={plan} ctaHref={ctaHref} />
+              ))}
             </div>
           </Container>
         </Section>
 
-        {/* How It Works */}
-        <Section>
-          <Container size="narrow">
+        <Section padding="small">
+          <Container>
             <Reveal>
-              <div className="space-y-4">
-                <span className="dome-kicker">How It Works</span>
-                <h2 className="text-display-lg dome-bracket">
-                  A simple path to exceptional design
-                </h2>
+              <div className="mb-10">
+                <span className="dome-kicker">Group 2</span>
+                <h2 className="text-display-lg dome-bracket mt-4">Premium class — estate & signature homes</h2>
+                <p className="text-body text-muted-foreground mt-4 max-w-2xl">
+                  White-glove consultation tiers for large plots, luxury specifications, and developer-grade commissions.
+                </p>
               </div>
             </Reveal>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {PREMIUM_PLANS.map((plan) => (
+                <PlanCard key={plan.id} plan={plan} ctaHref={ctaHref} />
+              ))}
+            </div>
+            <Reveal delay={0.2}>
+              <p className="text-body-sm text-muted-foreground mt-8 text-center">
+                All prices in INR. Additional floor charges apply beyond the max area. Payments processed securely via Razorpay.
+              </p>
+            </Reveal>
+          </Container>
+        </Section>
 
+        <Section padding="small">
+          <Container size="narrow">
+            <Reveal>
+              <div className="space-y-4 mb-10">
+                <span className="dome-kicker">How it works</span>
+                <h2 className="text-display-lg dome-bracket">From package to architect chat</h2>
+              </div>
+            </Reveal>
             <DomeTimeline
               items={[
                 {
                   meta: "01",
-                  title: "Explore Architects",
-                  description:
-                    "Browse our curated network of verified architects. Filter by specialty, location, budget, and style to find your perfect match.",
+                  title: "Choose your package",
+                  description: "Select a tier that matches your plot size and budget on this page or when booking an architect.",
                 },
                 {
                   meta: "02",
-                  title: "Start a Conversation",
-                  description:
-                    "Purchase chat access to connect directly with your chosen architect. Share your vision, ask questions, and explore possibilities.",
+                  title: "Book & pay via Razorpay",
+                  description: "Complete a short consultation brief, then pay in test mode using your Razorpay checkout.",
                 },
                 {
                   meta: "03",
-                  title: "Begin Your Project",
-                  description:
-                    "When you find the right fit, move forward with confidence. Your architect will guide you through the entire design process.",
+                  title: "Meet your architect",
+                  description: "Your consultation is confirmed instantly and appears under Payments in your dashboard.",
                 },
               ]}
             />
           </Container>
         </Section>
 
-        {/* FAQ */}
-        <Section className="bg-secondary/30">
-          <Container size="narrow">
-            <Reveal>
-              <div className="space-y-4">
-                <span className="dome-kicker">Questions</span>
-                <h2 className="text-display-lg dome-bracket">
-                  Frequently asked
-                </h2>
-              </div>
-            </Reveal>
-
-            <div className="dome-timeline">
-              <Reveal delay={0.1}>
-                <FAQItem 
-                  question="What happens after I pay for a chat?"
-                  answer="You'll gain immediate access to message the architect directly. They typically respond within 24 hours, and you can exchange unlimited messages for 7 days."
-                />
-              </Reveal>
-              <Reveal delay={0.2}>
-                <FAQItem 
-                  question="Can I get a refund if the architect doesn't respond?"
-                  answer="Yes. If an architect doesn't respond within 48 hours, we'll refund your payment in full, no questions asked."
-                />
-              </Reveal>
-              <Reveal delay={0.3}>
-                <FAQItem 
-                  question="How are architects verified?"
-                  answer="All architects on DomeLink undergo a thorough vetting process including portfolio review, credential verification, and client references."
-                />
-              </Reveal>
-              <Reveal delay={0.4}>
-                <FAQItem 
-                  question="What if I want to work with the architect long-term?"
-                  answer="Great! The chat is your starting point. Once you're ready to proceed, you'll work directly with the architect on project terms and contracts."
-                />
-              </Reveal>
-            </div>
-          </Container>
-        </Section>
         <DomeCTA />
       </main>
       <Footer />
     </PageTransition>
   );
 };
-
-const PricingFeature = ({ children, light = false }: { children: React.ReactNode; light?: boolean }) => (
-  <li className="flex items-center gap-3">
-    <svg 
-      width="16" 
-      height="16" 
-      viewBox="0 0 16 16" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="1.5"
-      className={light ? "text-background/60" : "text-muted-foreground"}
-    >
-      <path d="M3 8l4 4 6-8" />
-    </svg>
-    <span className={`text-body-sm ${light ? "text-background/80" : "text-muted-foreground"}`}>
-      {children}
-    </span>
-  </li>
-);
-
-const FAQItem = ({ question, answer }: { question: string; answer: string }) => (
-  <div className="dome-timeline-item">
-    <h3 className="text-display-sm mb-4">{question}</h3>
-    <p className="text-body text-muted-foreground">{answer}</p>
-  </div>
-);
 
 export default Pricing;

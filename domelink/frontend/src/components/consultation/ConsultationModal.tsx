@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import FileUpload from "@/components/ui/FileUpload";
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -10,7 +11,7 @@ interface ConsultationModalProps {
   architectId: string;
 }
 
-const steps = ["Project", "Preferences", "Confirm"] as const;
+const steps = ["Project", "Preferences", "Files", "Confirm"] as const;
 
 const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: ConsultationModalProps) => {
   const [stepIndex, setStepIndex] = useState(0);
@@ -22,6 +23,7 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
     preferredStyle: "",
     location: "",
     message: "",
+    uploadedReferences: [] as string[],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -40,6 +42,7 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
         plotSize: form.plotSize || undefined,
         preferredStyle: form.preferredStyle || undefined,
         location: form.location || undefined,
+        uploadedReferences: form.uploadedReferences.length > 0 ? form.uploadedReferences : undefined,
       });
       toast.success("Consultation booked.");
       onComplete(consultation._id);
@@ -136,8 +139,28 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
             )}
 
             {stepIndex === 2 && (
+              <div className="space-y-6">
+                <label className="text-caption text-muted-foreground block mb-2">Reference files & Inspiration</label>
+                <FileUpload 
+                  scope="consultation" 
+                  onUploadSuccess={(url) => setForm(prev => ({ ...prev, uploadedReferences: [...prev.uploadedReferences, url] }))}
+                />
+                
+                {form.uploadedReferences.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-4">
+                    {form.uploadedReferences.map((url, i) => (
+                      <div key={i} className="relative aspect-video rounded-xl overflow-hidden bg-secondary">
+                        <img src={url} alt={`Reference ${i + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {stepIndex === 3 && (
               <div className="space-y-4">
-                <label className="text-caption text-muted-foreground">Project message</label>
+                <label className="text-caption text-muted-foreground block mb-2">Project message</label>
                 <textarea
                   className="w-full dome-input rounded-2xl resize-none"
                   rows={4}

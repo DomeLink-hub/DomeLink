@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
@@ -16,64 +16,436 @@ enum Role {
   SUPERADMIN
 }
 
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  STUDIO
+}
+
+enum PlacementType {
+  HOMEPAGE
+  EXPLORE
+  FEATURED_BADGE
+}
+
+enum UploadScope {
+  ARCHITECTS
+  PORTFOLIOS
+  CONSULTATIONS
+  INSPIRATIONS
+  PROJECTS
+  DELIVERABLES
+}
+
+enum ConsultationStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  REVIEW_PENDING
+  COMPLETED
+  CANCELLED
+}
+
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String   // Maps to password or passwordHash in your controller
-  name          String
-  role          Role     @default(CLIENT)
-  avatar        String?
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String // Maps to password or passwordHash in your controller
+  name     String
+  role     Role    @default(CLIENT)
+  avatar   String?
 
   // --- Architect Specific Fields ---
-  location      String?
-  specialty     String?
-  startingPrice Int?
-  experience    String?
-  teamSize      Int?
-  heroImage     String?
-  about         String?
-  slug          String?  @unique
+  location          String?
+  specialty         String?
+  startingPrice     Int?
+  experience        String?
+  teamSize          Int?
+  heroImage         String?
+  profileImage      String?
+  about             String?
+  slug              String? @unique
+  isVerified        Boolean @default(false)
+  isFeatured        Boolean @default(false)
+  consultationFee   Int?
+  rating            Float   @default(0)
+  completedProjects Int     @default(0)
+  reviewCount       Int     @default(0)
+  trustScore        Float   @default(0)
+  designStyles      Json?
+  projectTypes      Json?
+  citiesServed      Json?
+  servicesOffered   Json?
+
+  // --- Homeowner Onboarding Fields ---
+  city                String?
+  projectType         String?
+  plotSize            Int?
+  budgetMin           Int?
+  budgetMax           Int?
+  preferredStyles     Json?
+  vastuPreference     Boolean? @default(false)
+  timeline            String?
+  familySize          Int?
+  projectStage        String?
+  onboardingCompleted Boolean  @default(false)
 
   // --- Relations ---
   // A user can be a client in many consultations, or an architect in many consultations
-  clientConsultations    Consultation[] @relation("ClientConsultations")
-  architectConsultations Consultation[] @relation("ArchitectConsultations")
+  clientConsultations    Consultation[]      @relation("ClientConsultations")
+  architectConsultations Consultation[]      @relation("ArchitectConsultations")
   messagesSent           ChatMessage[]
+  portfolioProjects      PortfolioProject[]
+  projectsOwned          Project[]           @relation("ProjectOwner")
+  projectsLed            Project[]           @relation("ProjectArchitect")
+  paymentsSent           Payment[]           @relation("PaymentsSent")
+  paymentsReceived       Payment[]           @relation("PaymentsReceived")
+  subscriptions          Subscription[]
+  invoices               Invoice[]
+  featuredPlacements     FeaturedPlacement[]
+  uploadAssets           UploadAsset[]
+  sharedFiles            SharedFile[]
+  refreshTokens          RefreshToken[]
+  avoraEstimates         AvoraEstimate[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  WebhookReplay WebhookReplay[]
+}
+
+model PortfolioProject {
+  id          String  @id @default(uuid())
+  architectId String
+  title       String
+  description String
+  images      Json
+  location    String?
+  year        String?
+  area        String?
+  style       String?
+  projectType String?
+  clientName  String?
+  featured    Boolean @default(false)
+
+  uploadAssets UploadAsset[]
+
+  architect User @relation(fields: [architectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id              String  @id @default(uuid())
+  consultationId  String  @unique
+  architectId     String
+  homeownerId     String
+  title           String
+  description     String
+  estimatedBudget Int?
+  estimatedTime   String?
+  status          String  @default("planning")
+  currentPhase    String?
+  featured        Boolean @default(false)
+
+  consultation Consultation       @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  architect    User               @relation("ProjectArchitect", fields: [architectId], references: [id], onDelete: Cascade)
+  homeowner    User               @relation("ProjectOwner", fields: [homeownerId], references: [id], onDelete: Cascade)
+  milestones   ProjectMilestone[]
+  files        SharedFile[]
+  payments     Payment[]
+  uploadAssets UploadAsset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProjectMilestone {
+  id          String    @id @default(uuid())
+  projectId   String
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      String    @default("pending")
+  completedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SharedFile {
+  id             String      @id @default(uuid())
+  consultationId String?
+  projectId      String?
+  uploadedById   String
+  name           String
+  url            String
+  type           String
+  size           Int?
+  publicId       String?
+  scope          UploadScope @default(PROJECTS)
+  isApproved     Boolean     @default(true)
+
+  consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  uploadedBy   User          @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  payerId           String
+  payeeId           String?
+  consultationId    String?
+  projectId         String?
+  amount            Int
+  currency          String        @default("INR")
+  status            PaymentStatus @default(PENDING)
+  method            String?
+  purpose           String
+  providerOrderId   String?       @unique
+  providerPaymentId String?       @unique
+  providerSignature String?
+  metadata          Json?
+
+  payer             User               @relation("PaymentsSent", fields: [payerId], references: [id], onDelete: Cascade)
+  payee             User?              @relation("PaymentsReceived", fields: [payeeId], references: [id], onDelete: SetNull)
+  consultation      Consultation?      @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+  project           Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  invoice           Invoice?
+  featuredPlacement FeaturedPlacement?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscription {
+  id                     String           @id @default(uuid())
+  userId                 String           @unique
+  tier                   SubscriptionTier @default(FREE)
+  status                 String           @default("active")
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  autoRenew              Boolean          @default(false)
+  startedAt              DateTime         @default(now())
+  currentPeriodEnd       DateTime?
+  metadata               Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  invoiceNumber String   @unique
+  userId        String
+  paymentId     String?  @unique
+  amount        Int
+  currency      String   @default("INR")
+  status        String   @default("issued")
+  pdfUrl        String?
+  issuedAt      DateTime @default(now())
+  metadata      Json?
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FeaturedPlacement {
+  id            String        @id @default(uuid())
+  architectId   String
+  paymentId     String?       @unique
+  placementType PlacementType @default(HOMEPAGE)
+  rank          Int           @default(0)
+  startsAt      DateTime      @default(now())
+  endsAt        DateTime?
+  isActive      Boolean       @default(true)
+  metadata      Json?
+
+  architect User     @relation(fields: [architectId], references: [id], onDelete: Cascade)
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UploadAsset {
+  id                 String      @id @default(uuid())
+  uploadedById       String
+  consultationId     String?
+  projectId          String?
+  portfolioProjectId String?
+  scope              UploadScope
+  name               String
+  publicId           String      @unique
+  url                String
+  mimeType           String
+  size               Int?
+  width              Int?
+  height             Int?
+  isApproved         Boolean     @default(true)
+  metadata           Json?
+
+  uploadedBy       User              @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  consultation     Consultation?     @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+  project          Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  portfolioProject PortfolioProject? @relation(fields: [portfolioProjectId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Consultation {
-  id          String   @id @default(uuid())
-  userId      String
-  architectId String
-  message     String?
-  projectType String?
-  status      String   @default("pending") // e.g., pending, active, completed
-  amount      Int      @default(0)
+  id                 String  @id @default(uuid())
+  userId             String
+  architectId        String
+  message            String?
+  projectType        String?
+  budget             Int?
+  timeline           String?
+  plotDetails        Json?
+  notes              String?
+  inspirationLinks   Json?
+  uploadedReferences Json?
+  status             ConsultationStatus @default(PENDING)
+  amount             Int     @default(0)
 
   // --- Relations ---
-  user        User          @relation("ClientConsultations", fields: [userId], references: [id])
-  architect   User          @relation("ArchitectConsultations", fields: [architectId], references: [id])
-  messages    ChatMessage[]
+  user         User          @relation("ClientConsultations", fields: [userId], references: [id])
+  architect    User          @relation("ArchitectConsultations", fields: [architectId], references: [id])
+  messages     ChatMessage[]
+  project      Project?
+  sharedFiles  SharedFile[]
+  payments     Payment[]
+  uploadAssets UploadAsset[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ChatMessage {
-  id             String   @id @default(uuid())
+  id             String @id @default(uuid())
   consultationId String
   senderId       String
   message        String
-  
+
   // Storing the Mongo-style array [{ userId, readAt }] directly as JSONB for performance
-  readBy         Json     @default("[]") 
+  readBy Json @default("[]")
 
   // --- Relations ---
-  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
-  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
-  timestamp      DateTime @default(now()) 
+  timestamp DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String
+  revoked   Boolean   @default(false)
+  expiresAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WebhookEvent {
+  id          String    @id @default(uuid())
+  provider    String
+  event       String
+  payload     Json
+  payloadHash String    @unique
+  signature   String?
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  WebhookReplay WebhookReplay[]
+}
+
+model WebhookReplay {
+  id             String   @id @default(uuid())
+  webhookEventId String
+  adminId        String
+  notes          Json?
+  replayedAt     DateTime @default(now())
+
+  webhookEvent WebhookEvent @relation(fields: [webhookEventId], references: [id], onDelete: Cascade)
+  admin        User         @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AvoraEstimate {
+  id          String @id @default(uuid())
+  homeownerId String
+
+  // Questionnaire inputs
+  city               String
+  locationType       String?
+  plotSize           Int
+  builtUpArea        Int?
+  floors             Int     @default(1)
+  timeline           String?
+  familySize         Int?
+  architectureStyle  String?
+  lifestyleFeatures  Json?   @default("[]")
+  interiorTier       String?
+  vastuRequired      Boolean @default(false)
+  prayerRoom         Boolean @default(false)
+  courtyard          Boolean @default(false)
+  budgetMin          Int?
+  budgetMax          Int?
+  budgetFlexibility  String?
+  materialPreference String?
+
+  // AI-generated report
+  report Json?
+
+  // Status
+  status String @default("draft")
+
+  homeowner User @relation(fields: [homeownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  userId    String?
+  eventName String
+  metadata  Json?
+  createdAt DateTime @default(now())
 }

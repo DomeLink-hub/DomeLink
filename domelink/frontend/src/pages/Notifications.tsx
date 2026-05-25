@@ -5,6 +5,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PageTransition from "@/components/layout/PageTransition";
 import { api, type Notification } from "@/lib/api";
+import { socket } from "@/lib/socket";
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -12,10 +13,40 @@ export default function Notifications() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getNotifications()
-      .then(setNotifications)
-      .catch(() => setError("Failed to load notifications."))
-      .finally(() => setLoading(false));
+    let active = true;
+
+    const load = async () => {
+      try {
+        const items = await api.getNotifications();
+        if (!active) return;
+        setNotifications(items);
+
+        const unreadIds = items.filter((item) => !item.read).map((item) => item._id);
+        for (const id of unreadIds) {
+          void api.markNotificationRead(id).then((updated) => {
+            if (!active) return;
+            setNotifications((prev) => prev.map((item) => item._id === id ? updated : item));
+          });
+        }
+      } catch {
+        if (active) setError("Failed to load notifications.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void load();
+
+    const onNotification = (notification: Notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+    };
+
+    socket.on("notification", onNotification);
+
+    return () => {
+      active = false;
+      socket.off("notification", onNotification);
+    };
   }, []);
 
   const handleMarkRead = async (id: string) => {
