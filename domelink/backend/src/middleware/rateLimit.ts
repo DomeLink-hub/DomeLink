@@ -12,13 +12,14 @@ export const apiRateLimiter = rateLimit({
   skip: (req: any) => req.path === "/api/health" || req.path === "/api/health/readiness",
 });
 
-// Auth endpoints — 5 req / 15 min (brute-force prevention)
+// Auth endpoints — 5 req / 15 min in production (brute-force prevention)
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many authentication attempts. Please wait before trying again." },
+  skip: () => process.env.NODE_ENV !== "production",
 });
 
 // AI endpoints — 10 req / 10 min (abuse throttling)

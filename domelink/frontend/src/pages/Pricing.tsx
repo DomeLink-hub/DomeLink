@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useAuth } from "@/context/useAuthContext";
+import { useRazorpay } from "@/hooks/useRazorpay";
 import {
   STANDARD_PLANS,
   PREMIUM_PLANS,
@@ -22,7 +23,7 @@ import {
   type PricingPlan,
 } from "@/lib/pricingPlans";
 
-function PlanCard({ plan, ctaHref }: { plan: PricingPlan; ctaHref: string }) {
+function PlanCard({ plan, buttonLabel, onSelect }: { plan: PricingPlan; buttonLabel: string; onSelect: () => void }) {
   return (
     <Reveal>
       <div className="dome-card p-6 md:p-8 h-full flex flex-col">
@@ -63,15 +64,17 @@ function PlanCard({ plan, ctaHref }: { plan: PricingPlan; ctaHref: string }) {
           </Accordion>
         </div>
 
-        <Link to={ctaHref} className="mt-6 block">
+        <div className="mt-6 block">
           <motion.button
+            type="button"
             className="dome-button w-full"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={onSelect}
           >
-            Get Started
+            {buttonLabel}
           </motion.button>
-        </Link>
+        </div>
       </div>
     </Reveal>
   );
@@ -79,8 +82,24 @@ function PlanCard({ plan, ctaHref }: { plan: PricingPlan; ctaHref: string }) {
 
 const Pricing = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { openPaymentOverlay } = useRazorpay();
   const isHomeowner = user?.role === "CLIENT" || user?.role === "homeowner";
   const ctaHref = user && isHomeowner ? "/explore" : "/signup?role=homeowner";
+
+  const handlePlanPayment = async (plan: PricingPlan) => {
+    if (!user) {
+      navigate(`/login?from=${encodeURIComponent("/pricing")}`);
+      return;
+    }
+
+    await openPaymentOverlay("consultation", {
+      amount: plan.priceInr,
+      currency: "INR",
+      planName: plan.id,
+      planTitle: plan.name,
+    });
+  };
 
   return (
     <PageTransition>
@@ -147,7 +166,12 @@ const Pricing = () => {
             </Reveal>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {STANDARD_PLANS.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} ctaHref={ctaHref} />
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  buttonLabel={user ? "Pay Now" : "Login to Pay"}
+                  onSelect={() => handlePlanPayment(plan)}
+                />
               ))}
             </div>
           </Container>
@@ -166,7 +190,12 @@ const Pricing = () => {
             </Reveal>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {PREMIUM_PLANS.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} ctaHref={ctaHref} />
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  buttonLabel={user ? "Pay Now" : "Login to Pay"}
+                  onSelect={() => handlePlanPayment(plan)}
+                />
               ))}
             </div>
             <Reveal delay={0.2}>
