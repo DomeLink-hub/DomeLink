@@ -61,6 +61,33 @@ function PlanCard({ plan, buttonLabel, onSelect }: { plan: PricingPlan; buttonLa
                 </ul>
               </AccordionContent>
             </AccordionItem>
+            <AccordionItem value="features" className="border-border/50">
+              <AccordionTrigger className="text-caption text-muted-foreground py-3 hover:no-underline">
+                View feature details
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 text-body-sm text-muted-foreground pb-2">
+                  <div>
+                    <p className="font-semibold text-foreground mb-2">Include</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {plan.features.map((feature) => (
+                        <li key={feature}>{feature}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  {plan.exclusions?.length ? (
+                    <div>
+                      <p className="font-semibold text-foreground mb-2">Exclude</p>
+                      <ul className="list-disc pl-5 space-y-1 text-foreground/80">
+                        {plan.exclusions.map((exclude) => (
+                          <li key={exclude}>{exclude}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           </Accordion>
         </div>
 
