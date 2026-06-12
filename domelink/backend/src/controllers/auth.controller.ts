@@ -48,21 +48,51 @@ const setRefreshCookie = (res: Response, tokenValue: string) => {
   });
 };
 
+const normalizeRole = (role?: string) => {
+  if (!role) return "CLIENT";
+  const normalized = role.trim().toLowerCase();
+  if (normalized === "architect") return "ARCHITECT";
+  if (normalized === "admin") return "ADMIN";
+  return "CLIENT";
+};
+
 export const register = async (req: Request, res: Response) => {
   try {
     const { name, email, password, role } = req.body;
 
-    const exists = await prisma.user.findUnique({ where: { email } });
+    logger.info("Register payload received", {
+      hasName: typeof name === "string" && name.trim().length > 0,
+      hasEmail: typeof email === "string" && email.trim().length > 0,
+      hasPassword: typeof password === "string" && password.length > 0,
+      role,
+    });
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required." });
+    }
+
+    if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
+      return res.status(400).json({ message: "Invalid registration payload type." });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters long." });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
+
+    const exists = await prisma.user.findUnique({ where: { email: trimmedEmail } });
     if (exists) return res.status(409).json({ message: "User already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
-        email,
+        email: trimmedEmail,
         password: hashedPassword,
-        name,
-        role: role ? role.toUpperCase() : "CLIENT",
+        name: trimmedName,
+        role: normalizeRole(role),
       },
     });
 
@@ -97,7 +127,10 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    logger.info("Login attempt", { email: normalizedEmail });
+
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -137,6 +170,48 @@ export const getMe = async (req: Request, res: Response) => {
   } catch (e) {
     console.error("GET ME ERROR:", e);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const seedTestUser = async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === "production") {
+    return res.status(403).json({ message: "Test user seeding is disabled in production." });
+  }
+
+  try {
+    const email = "test.user@domelink.local";
+    const password = "Test1234!";
+    const name = "Test User";
+    const role = "CLIENT";
+
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      user = await prisma.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+          role,
+        },
+      });
+    }
+
+    const token = generateToken(user.id);
+    const profile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: userProfileSelect,
+    });
+
+    return res.status(200).json({
+      email,
+      password,
+      token,
+      user: profile,
+    });
+  } catch (e) {
+    console.error("SEED TEST USER ERROR:", e);
+    return res.status(500).json({ message: "Failed to seed test user." });
   }
 };
 

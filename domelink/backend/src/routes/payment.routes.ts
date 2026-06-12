@@ -22,11 +22,13 @@ paymentRouter.get("/invoices", requireAuth, getMyInvoices);
 paymentRouter.get("/summary", requireAuth, getBillingSummary);
 paymentRouter.get("/architect/:architectId", requireAuth, getPaymentsForArchitect);
 paymentRouter.post("/create-order", requireAuth, requireRole(["CLIENT", "client", "homeowner", "ADMIN", "SUPERADMIN", "admin"]), createBookingOrder);
+paymentRouter.post("/createOrder", requireAuth, requireRole(["client", "client", "homeowner", "admin"]), createConsultationPayment);
 paymentRouter.post("/consultation", requireAuth, requireRole(["client", "client", "homeowner", "admin"]), createConsultationPayment);
 paymentRouter.post("/subscription", requireAuth, requireRole(["architect", "admin"]), createSubscriptionPayment);
 paymentRouter.post("/featured", requireAuth, requireRole(["architect", "admin"]), createFeaturedPlacementPayment);
 paymentRouter.post("/webhook", webhookRateLimiter, handleRazorpayWebhook);
 paymentRouter.post("/verify", requireAuth, verifyPayment);
+paymentRouter.post("/verifyPayment", requireAuth, verifyPayment);
 paymentRouter.get("/invoices/:invoiceId/pdf", requireAuth, downloadInvoicePdf);
 
 export default paymentRouter;

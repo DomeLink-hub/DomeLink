@@ -15,6 +15,9 @@ import PDFDocument from "pdfkit";
 const consultationOrderSchema = z.object({
   architectId: z.string().uuid().optional(),
   consultationId: z.string().uuid().optional(),
+  planName: z.string().optional(),
+  packageName: z.string().optional(),
+  planTitle: z.string().optional(),
   amount: z.number().positive(),
   currency: z.string().default("INR"),
 });
@@ -272,7 +275,17 @@ export const createConsultationPayment = asyncHandler(async (req: Request, res: 
   if (!userId) throw new AppError("Unauthorized", 401);
 
   const order = await createRazorpayOrder(Math.round(payload.amount * 100), payload.currency, `consultation_${Date.now()}`);
+  if (!order || typeof order !== "object" || "skipped" in order) {
+    const reason = order && typeof order === "object" && "reason" in order ? String((order as any).reason) : "RAZORPAY_KEY_ID/SECRET not configured";
+    throw new AppError(`Razorpay is not configured: ${reason}`, 503);
+  }
 
+  const orderId = getOrderId(order);
+  if (!orderId) {
+    throw new AppError("Failed to create Razorpay order", 500);
+  }
+
+  const planLabel = payload.planName || payload.packageName || payload.planTitle;
   const payment = await prisma.payment.create({
     data: {
       payerId: userId,
@@ -283,12 +296,29 @@ export const createConsultationPayment = asyncHandler(async (req: Request, res: 
       status: "PENDING",
       method: "razorpay",
       purpose: "consultation",
-      providerOrderId: getOrderId(order),
-      metadata: { orderId: getOrderId(order), kind: "consultation", amount: payload.amount, currency: payload.currency },
+      providerOrderId: orderId,
+      metadata: {
+        orderId,
+        kind: "consultation",
+        amount: payload.amount,
+        currency: payload.currency,
+        ...(planLabel ? { planName: planLabel } : {}),
+      },
     },
   });
 
-  res.status(201).json({ payment, order });
+  if (!env.RAZORPAY_KEY_ID) {
+    throw new AppError("Razorpay key not configured", 503);
+  }
+
+  res.status(201).json({
+    payment,
+    order,
+    orderId,
+    amount: payload.amount,
+    currency: payload.currency,
+    key: env.RAZORPAY_KEY_ID,
+  });
 });
 
 export const createSubscriptionPayment = asyncHandler(async (req: Request, res: Response) => {
