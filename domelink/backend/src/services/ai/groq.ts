@@ -3,12 +3,20 @@ const Groq = typeof GroqModule === 'function' ? GroqModule : (GroqModule as any)
 
 const apiKey = process.env.GROQ_API_KEY;
 
+export const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+
 if (!apiKey) {
-  throw new Error("GROQ_API_KEY is required for DomeLink AI services.");
+  console.warn("[AI] GROQ_API_KEY is not configured. DomeLink AI services will be disabled.");
 }
 
-export const groq = new Groq({
-  apiKey,
-});
-
-export const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+export const groq: any = apiKey
+  ? new Groq({ apiKey })
+  : {
+      chat: {
+        completions: {
+          create: async () => {
+            throw new Error("GROQ_API_KEY is not configured.");
+          },
+        },
+      },
+    };

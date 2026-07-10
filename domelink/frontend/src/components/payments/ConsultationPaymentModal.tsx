@@ -66,13 +66,31 @@ const ConsultationPaymentModal = ({
         return;
       }
 
+      const razorpayKey = order.key ?? order.order?.key ?? order.key_id ?? "";
+      const razorpayOrderId = order.orderId ?? order.order?.id ?? order.id;
+      const razorpayAmount = order.amount ?? order.order?.amount;
+      const razorpayCurrency = order.currency ?? order.order?.currency ?? "INR";
+
+      if (!razorpayKey) {
+        toast.error("Razorpay key missing. Please add VITE_RAZORPAY_KEY_ID to frontend env.");
+        return;
+      }
+      if (!razorpayOrderId) {
+        toast.error("Payment gateway did not return an order id");
+        return;
+      }
+      if (!razorpayAmount) {
+        toast.error("Payment amount is missing");
+        return;
+      }
+
       const rzp = new window.Razorpay({
-        key: order.key,
-        amount: order.amount,
-        currency: order.currency,
+        key: razorpayKey,
+        amount: razorpayAmount,
+        currency: razorpayCurrency,
         name: "DomeLink",
         description: `${selectedPlan.name} — consultation with ${architectName}`,
-        order_id: order.orderId,
+        order_id: razorpayOrderId,
         handler: async (response: {
           razorpay_payment_id: string;
           razorpay_order_id: string;

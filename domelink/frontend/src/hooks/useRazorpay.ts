@@ -47,17 +47,30 @@ export const useRazorpay = () => {
           throw new Error("Invalid payment purpose");
         }
 
-        const { payment, order } = response;
+        const order = response.order ?? response;
+        const payment = response.payment ?? payload;
         const orderId = order?.id;
         if (!orderId) {
           toast.error("Payment gateway did not return an order id");
           return;
         }
 
+        const amount = payment?.amount ?? payload?.amount;
+        const currency = payment?.currency ?? payload?.currency ?? "INR";
+        const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || import.meta.env.VITE_RAZORPAY_KEY || response?.key || "";
+        if (!razorpayKey) {
+          toast.error("Razorpay key missing. Configure VITE_RAZORPAY_KEY_ID in frontend env.");
+          return;
+        }
+        if (!amount) {
+          toast.error("Payment amount is missing");
+          return;
+        }
+
         const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || import.meta.env.VITE_RAZORPAY_KEY || "",
-          amount: payment.amount * 100,
-          currency: payment.currency || "INR",
+          key: razorpayKey,
+          amount: amount * 100,
+          currency,
           name: "DomeLink",
           description: `Payment for ${purpose}`,
           order_id: orderId,
