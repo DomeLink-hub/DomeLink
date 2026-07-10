@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import ArchitectDiscoveryCard from "@/components/discovery/ArchitectDiscoveryCard";
 import AvoraProjectCopilot from "@/components/intelligence/AvoraProjectCopilot";
+import EmailVerificationBanner from "@/components/common/EmailVerificationBanner";
 
 const formatINR = (n: number) =>
   n >= 10_000_000 ? `₹${(n / 10_000_000).toFixed(1)}Cr` : `₹${(n / 100_000).toFixed(1)}L`;
@@ -107,7 +108,7 @@ const HomeownerDashboard = () => {
   const activityFeed = useMemo(() => {
     const items = [
       ...notifications.slice(0, 3).map((n, idx) => ({
-        id: `notification-${n.id || idx}`,
+        id: `notification-${(n as any).id || idx}`,
         type: "notification" as const,
         label: n.title || "Notification",
         sub: n.body,
@@ -144,6 +145,9 @@ const HomeownerDashboard = () => {
         {/* ── Intelligence layer ─────────────────────────────── */}
         <Section padding="small">
           <Container>
+
+            {/* Email verification nudge — informational only, does not gate anything */}
+            <EmailVerificationBanner user={profile?.user as any} />
 
             {/* Project summary cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -238,7 +242,7 @@ const HomeownerDashboard = () => {
                     {activityFeed.map((item) => (
                       <motion.div key={item.id} className="dome-panel p-3 flex items-start justify-between gap-4"
                         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: Math.random() * 0.3, ease: [0.16, 1, 0.3, 1] }}>
+                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
                         <div className="flex items-start gap-3">
                           <span className="dome-chip text-xs mt-0.5">{item.type}</span>
                           <div>
@@ -287,13 +291,13 @@ const HomeownerDashboard = () => {
             ) : activeChats.length > 0 ? (
               <StaggerContainer className="space-y-4">
                 {activeChats.map(chat => (
-                  <StaggerItem key={chat._id || chat.id}>
-                    <Link to={`/architect/${chat.architect?.slug || chat.architectId}`}>
+                  <StaggerItem key={chat._id || (chat as any).id}>
+                    <Link to={`/architect/${(chat as any).architect?.slug || (chat as any).architectId}`}>
                       <div className="dome-card p-6 hover:border-foreground transition-colors duration-300 flex items-center gap-6">
                         <img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80"
-                          alt={chat.architect?.name || "Architect"} className="w-16 h-16 rounded-full object-cover" />
+                          alt={(chat as any).architect?.name || "Architect"} className="w-16 h-16 rounded-full object-cover" />
                         <div className="flex-1">
-                          <h3 className="text-body font-medium">{chat.architect?.name || "Architect"}</h3>
+                          <h3 className="text-body font-medium">{(chat as any).architect?.name || "Architect"}</h3>
                           <p className="text-body-sm text-muted-foreground">{chat.message}</p>
                         </div>
                         <span className="text-caption text-muted-foreground">{new Date(chat.createdAt).toLocaleDateString()}</span>
@@ -364,11 +368,14 @@ const HomeownerDashboard = () => {
                 </div>
               </Reveal>
               <Grid cols={3} gap="default">
-                {recommendations.map((architect, i) => (
-                  <Reveal key={architect._id} delay={i * 0.1}>
-                    <ArchitectDiscoveryCard architect={architect} saved={savedIds.has(architect._id)} />
-                  </Reveal>
-                ))}
+                {recommendations.map((architect, i) => {
+                  const archId = (architect as any).id || architect._id;
+                  return (
+                    <Reveal key={`rec-${archId}-${i}`} delay={i * 0.1}>
+                      <ArchitectDiscoveryCard architect={architect} saved={savedIds.has(archId)} />
+                    </Reveal>
+                  );
+                })}
               </Grid>
             </Container>
           </Section>

@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -12,8 +11,6 @@ import DomeHero from "@/components/layout/DomeHero";
 import DomeCTA from "@/components/layout/DomeCTA";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
-import StudioScene from "@/components/3d/StudioScene";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 interface TeamMemberView {
   id: string;
@@ -23,34 +20,6 @@ interface TeamMemberView {
   avatar: string;
   status: "online" | "offline" | "away";
 }
-
-interface Note {
-  id: string;
-  author: string;
-  content: string;
-  timestamp: string;
-}
-
-const initialNotes: Note[] = [
-  {
-    id: "1",
-    author: "Elena Vasquez",
-    content: "Client meeting for Casa del Mar rescheduled to Friday 3pm. Please update your calendars.",
-    timestamp: "2 hours ago",
-  },
-  {
-    id: "2",
-    author: "Carlos Mendez",
-    content: "Completed the initial sketches for the Barcelona project. Ready for review.",
-    timestamp: "Yesterday",
-  },
-  {
-    id: "3",
-    author: "Maria Santos",
-    content: "Budget approval received for the Girona renovation. We can proceed with phase 2.",
-    timestamp: "2 days ago",
-  },
-];
 
 const ArchitectTeam = () => {
   const queryClient = useQueryClient();
@@ -70,8 +39,6 @@ const ArchitectTeam = () => {
   });
 
   const [team, setTeam] = useState<TeamMemberView[]>([]);
-  const [notes, setNotes] = useState<Note[]>(initialNotes);
-  const [newNote, setNewNote] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [showInvite, setShowInvite] = useState(false);
 
@@ -84,21 +51,6 @@ const ArchitectTeam = () => {
       }
     },
   });
-
-  const handleAddNote = () => {
-    if (!newNote.trim()) return;
-    
-    const note: Note = {
-      id: Date.now().toString(),
-      author: "Elena Vasquez",
-      content: newNote,
-      timestamp: "Just now",
-    };
-    
-    setNotes([note, ...notes]);
-    setNewNote("");
-    toast.success("Note shared with team");
-  };
 
   const handleInvite = () => {
     if (!inviteEmail.trim()) return;
@@ -135,17 +87,6 @@ const ArchitectTeam = () => {
       );
     }
   }, [persistedTeam]);
-
-  const collaborationData = useMemo(
-    () => [
-      { label: "Mon", value: team.length + 2 },
-      { label: "Tue", value: team.length + 4 },
-      { label: "Wed", value: team.length + 3 },
-      { label: "Thu", value: team.length + 6 },
-      { label: "Fri", value: team.length + 5 },
-    ],
-    [team.length],
-  );
 
   const getStatusColor = (status: TeamMemberView["status"]) => {
     switch (status) {
@@ -233,30 +174,10 @@ const ArchitectTeam = () => {
             <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-8">
               <div className="dome-card p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-display-sm">Studio Synchrony</h3>
-                  <span className="text-caption text-muted-foreground">Live view</span>
+                  <h3 className="text-display-sm">Team Overview</h3>
+                  <span className="text-caption text-muted-foreground">Live data</span>
                 </div>
-                <StudioScene className="h-64 w-full" />
-              </div>
-              <div className="dome-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-display-sm">Collaboration Load</h3>
-                  <span className="text-caption text-muted-foreground">Team cadence</span>
-                </div>
-                <ChartContainer
-                  config={{
-                    value: { label: "Touches", color: "hsl(var(--primary))" },
-                  }}
-                  className="h-48"
-                >
-                  <AreaChart data={collaborationData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
-                  </AreaChart>
-                </ChartContainer>
-                <div className="grid grid-cols-2 gap-4 mt-6">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="dome-panel p-4">
                     <p className="text-caption text-muted-foreground">Active members</p>
                     <p className="text-display-sm mt-2">{team.length}</p>
@@ -266,6 +187,38 @@ const ArchitectTeam = () => {
                     <p className="text-display-sm mt-2">{pendingInvites.length}</p>
                   </div>
                 </div>
+                {team.length === 0 && pendingInvites.length === 0 && (
+                  <div className="mt-6 text-center py-4">
+                    <p className="text-body-sm text-muted-foreground">No team members yet. Invite a collaborator to get started.</p>
+                  </div>
+                )}
+              </div>
+              <div className="dome-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-display-sm">Online Status</h3>
+                  <span className="text-caption text-muted-foreground">Now</span>
+                </div>
+                {team.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-center space-y-2">
+                    <span className="text-muted-foreground text-xl">◇</span>
+                    <p className="text-body-sm text-muted-foreground">Invite team members to see their status here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {team.map((member) => (
+                      <div key={member.id} className="flex items-center gap-3">
+                        <div className="relative flex-shrink-0">
+                          <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full object-cover" />
+                          <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background ${getStatusColor(member.status)}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-medium truncate">{member.name}</p>
+                          <p className="text-caption text-muted-foreground">{member.status}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </Container>
@@ -336,53 +289,6 @@ const ArchitectTeam = () => {
           </Container>
         </Section>
 
-        {/* Shared Notes */}
-        <Section padding="small" className="pb-32">
-          <Container>
-            <Reveal>
-              <h2 className="text-display-sm mb-8">Shared Notes</h2>
-            </Reveal>
-
-            {/* Add Note */}
-            <Reveal delay={0.1}>
-              <div className="dome-panel p-6 mb-8">
-                <textarea
-                  placeholder="Share an update with your team..."
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  rows={3}
-                  className="w-full dome-input rounded-2xl resize-none mb-4"
-                />
-                <div className="flex justify-end">
-                  <motion.button
-                    onClick={handleAddNote}
-                    disabled={!newNote.trim()}
-                    className="dome-button disabled:opacity-50"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Share Note
-                  </motion.button>
-                </div>
-              </div>
-            </Reveal>
-
-            {/* Notes List */}
-            <div className="space-y-4">
-              {notes.map((note, index) => (
-                <Reveal key={note.id} delay={0.1 + index * 0.05}>
-                  <div className="dome-card p-6 hover:border-foreground transition-colors duration-300">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-body font-medium">{note.author}</span>
-                      <span className="text-caption text-muted-foreground">{note.timestamp}</span>
-                    </div>
-                    <p className="text-body text-muted-foreground">{note.content}</p>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-          </Container>
-        </Section>
         <DomeCTA />
       </main>
       <Footer />

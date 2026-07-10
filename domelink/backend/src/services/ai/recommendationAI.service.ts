@@ -7,7 +7,10 @@ export const generateRecommendationReason = async (architectProfile: any, custom
 
     Architect Profile Summary:
     Name: ${architectProfile.name || "Studio"}
-    Styles: ${architectProfile.styles?.join(", ") || "various styles"}
+    Firm: ${architectProfile.firmName || "Independent studio"}
+    Styles: ${(architectProfile.workingStyles || architectProfile.styles || architectProfile.designStyles || []).join(", ") || "various styles"}
+    Expertise: ${(architectProfile.expertise || architectProfile.servicesOffered || []).join(", ") || "broad design practice"}
+    Cities: ${(architectProfile.serviceCities || architectProfile.citiesServed || []).join(", ") || "multi-city"}
     Focus: ${architectProfile.about?.slice(0, 50) || "design excellence"}
 
     User Context:

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -13,7 +12,6 @@ import DomeCTA from "@/components/layout/DomeCTA";
 import { api, type PortfolioProject } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import StudioScene from "@/components/3d/StudioScene";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 interface Project {
   id: string;
@@ -57,16 +55,6 @@ const ArchitectPortfolio = () => {
       );
     }
   }, [portfolioData]);
-
-  const portfolioMomentum = useMemo(
-    () => [
-      { label: "Q1", value: Math.max(2, projects.length - 3) },
-      { label: "Q2", value: Math.max(3, projects.length - 1) },
-      { label: "Q3", value: Math.max(4, projects.length) },
-      { label: "Q4", value: Math.max(5, projects.length + 2) },
-    ],
-    [projects.length],
-  );
 
   const createProjectMutation = useMutation({
     mutationFn: (payload: Omit<PortfolioProject, "_id">) => api.createPortfolio(payload),
@@ -201,32 +189,45 @@ const ArchitectPortfolio = () => {
                     <p className="text-display-sm mt-2">{projects.length}</p>
                   </div>
                   <div className="dome-panel p-4">
-                    <p className="text-caption text-muted-foreground">Drafts</p>
-                    <p className="text-display-sm mt-2">{Math.max(0, 6 - projects.length)}</p>
+                    <p className="text-caption text-muted-foreground">Total projects</p>
+                    <p className="text-display-sm mt-2">{projects.length}</p>
                   </div>
                 </div>
               </div>
               <div className="dome-card p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-display-sm">Portfolio Momentum</h3>
-                  <span className="text-caption text-muted-foreground">Yearly</span>
+                  <h3 className="text-display-sm">Portfolio</h3>
+                  <span className="text-caption text-muted-foreground">{projects.length} project{projects.length !== 1 ? "s" : ""}</span>
                 </div>
-                <ChartContainer
-                  config={{
-                    value: { label: "Projects", color: "hsl(var(--primary))" },
-                  }}
-                  className="h-52"
-                >
-                  <AreaChart data={portfolioMomentum} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
-                  </AreaChart>
-                </ChartContainer>
-                <p className="text-body-sm text-muted-foreground mt-4">
-                  Curate a balanced mix of residential, commercial, and cultural projects to elevate discovery.
-                </p>
+                {projects.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-full border border-border/40 flex items-center justify-center">
+                      <span className="text-muted-foreground text-xl">◇</span>
+                    </div>
+                    <p className="text-body text-muted-foreground">You haven't added any portfolio projects yet</p>
+                    <p className="text-body-sm text-muted-foreground">Add your first one to showcase your work</p>
+                    <motion.button
+                      onClick={() => setIsAdding(true)}
+                      className="dome-button mt-2"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Add first project
+                    </motion.button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {projects.map((project) => (
+                      <div key={project.id} className="flex items-center gap-3 p-3 rounded-xl border border-border/40">
+                        <img src={project.image} alt={project.title} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-medium truncate">{project.title}</p>
+                          <p className="text-caption text-muted-foreground truncate">{project.location} · {project.year}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </Container>

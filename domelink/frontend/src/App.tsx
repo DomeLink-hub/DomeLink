@@ -12,6 +12,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import RoleRoute from "@/components/auth/RoleRoute";
 import OnboardingGuard from "@/components/auth/OnboardingGuard";
+import ArchitectOnboardingGuard from "@/components/auth/ArchitectOnboardingGuard";
 import LoaderScene from "@/components/3d/LoaderScene";
 
 // ... [Keep all your lazy imports exactly the same] ...
@@ -24,7 +25,6 @@ const HomeownerOnboarding = lazy(() => import("./pages/homeowner/HomeownerOnboar
 const AvoraEstimate = lazy(() => import("./pages/homeowner/AvoraEstimate"));
 const Index = lazy(() => import("./pages/Index"));
 const ChooseRole = lazy(() => import("./pages/ChooseRole"));
-const FindArchitects = lazy(() => import("./pages/FindArchitects"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const VerifiedArchitects = lazy(() => import("./pages/VerifiedArchitects"));
 const FeaturedArchitects = lazy(() => import("./pages/FeaturedArchitects"));
@@ -37,6 +37,12 @@ const Consultation = lazy(() => import("./pages/Consultation"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const Terms = lazy(() => import("./pages/Terms"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const ClientDashboard = lazy(() => import("./pages/ClientDashboard"));
 const HomeownerDashboard = lazy(() => import("./pages/HomeownerDashboard"));
 const ConsultationHistory = lazy(() => import("./pages/ConsultationHistory"));
@@ -47,6 +53,7 @@ const SavedArchitects = lazy(() => import("./pages/SavedArchitects"));
 const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ArchitectIntro = lazy(() => import("./pages/ArchitectIntro"));
+const ArchitectOnboarding = lazy(() => import("./pages/ArchitectOnboarding"));
 const ArchitectDashboard = lazy(() => import("./pages/ArchitectDashboard"));
 const ArchitectPortal = lazy(() => import("./pages/ArchitectPortal"));
 const ArchitectPortfolio = lazy(() => import("./pages/ArchitectPortfolio"));
@@ -102,7 +109,6 @@ const AppShell = () => {
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
             <Route path="/choose" element={<ChooseRole />} />
-            <Route path="/find-architects" element={<FindArchitects />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/verified-architects" element={<VerifiedArchitects />} />
             <Route path="/featured-architects" element={<FeaturedArchitects />} />
@@ -115,6 +121,12 @@ const AppShell = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/demo-dashboard" element={<DemoDashboard />} />
@@ -147,16 +159,17 @@ const AppShell = () => {
                 <Route path="/homeowner/onboarding" element={<HomeownerOnboarding />} />
                 <Route path="/homeowner/avora-estimate" element={<AvoraEstimate />} />
               </Route>
-              {/* Onboarding route (unguarded so CLIENT can always access) */}
-              <Route path="/homeowner/onboarding" element={<HomeownerOnboarding />} />
             </Route>
 
             {/* Architect Routes */}
             <Route element={<RoleRoute allowedRoles={["ARCHITECT", "ADMIN", "SUPERADMIN"]} />}>
-              <Route path="/architect/dashboard" element={<ArchitectDashboard />} />
-              <Route path="/architect/portal" element={<ArchitectPortal />} />
-              <Route path="/architect/portfolio" element={<ArchitectPortfolio />} />
-              <Route path="/architect/team" element={<ArchitectTeam />} />
+              <Route element={<ArchitectOnboardingGuard />}>
+                <Route path="/architect/onboarding" element={<ArchitectOnboarding />} />
+                <Route path="/architect/dashboard" element={<ArchitectDashboard />} />
+                <Route path="/architect/portal" element={<ArchitectPortal />} />
+                <Route path="/architect/portfolio" element={<ArchitectPortfolio />} />
+                <Route path="/architect/team" element={<ArchitectTeam />} />
+              </Route>
             </Route>
 
             {/* Admin Routes */}

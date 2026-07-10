@@ -264,8 +264,11 @@ const Index = () => {
                   ].map(s => (
                     <StaggerItem key={s.label}>
                       <DepthCard className="dome-card p-4">
-                        <p className="text-caption text-muted-foreground">{s.label}</p>
-                        <p className="text-display-sm mt-2">{s.value}</p>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <p className="text-caption text-muted-foreground">{s.label}</p>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-border/40 text-muted-foreground">Demo</span>
+                        </div>
+                        <p className="text-display-sm mt-1">{s.value}</p>
                         <p className="text-body-sm text-muted-foreground mt-1">{s.note}</p>
                       </DepthCard>
                     </StaggerItem>

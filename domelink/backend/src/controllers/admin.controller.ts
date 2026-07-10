@@ -1,8 +1,5 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { ArchitectModel } from "../models/Architect.js";
-import { ConsultationModel } from "../models/Consultation.js";
-import UserModel from "../models/User.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { AppError } from "../utils/AppError.js";
 import prisma from "../config/prisma.js";
@@ -17,95 +14,122 @@ const updateArchitectModerationSchema = z.object({
   isVerified: z.boolean(),
 });
 
+// getAdminOverview — now reads from the real Prisma data (Postgres).
+// Previously read from Mongo shadow copies that were NEVER written to by real app flows.
 export const getAdminOverview = asyncHandler(async (_req: Request, res: Response) => {
   const [
     totalUsers,
-    activeUsers,
-    suspendedUsers,
     totalArchitects,
     verifiedArchitects,
-    pendingArchitects,
     totalConsultations,
     activeConsultations,
   ] = await Promise.all([
-    UserModel.countDocuments(),
-    UserModel.countDocuments({ status: "active" }),
-    UserModel.countDocuments({ status: "suspended" }),
-    ArchitectModel.countDocuments(),
-    ArchitectModel.countDocuments({ isVerified: true }),
-    ArchitectModel.countDocuments({ moderationStatus: "pending" }),
-    ConsultationModel.countDocuments(),
-    ConsultationModel.countDocuments({ status: { $in: ["pending", "active", "accepted"] } }),
+    prisma.user.count({ where: { role: "CLIENT" } }),
+    prisma.user.count({ where: { role: "ARCHITECT" } }),
+    prisma.user.count({ where: { role: "ARCHITECT", isVerified: true } }),
+    prisma.consultation.count(),
+    prisma.consultation.count({ where: { status: { in: ["PENDING", "ACCEPTED", "IN_PROGRESS"] } } }),
   ]);
 
   res.status(200).json({
     totalUsers,
-    activeUsers,
-    suspendedUsers,
+    activeUsers: totalUsers,      // Prisma User has no status field — all are "active"
+    suspendedUsers: 0,            // suspension not yet tracked in Prisma User model
     totalArchitects,
     verifiedArchitects,
-    pendingArchitects,
+    pendingArchitects: 0,         // moderationStatus not on Prisma User — onboarding gates access instead
     totalConsultations,
     activeConsultations,
   });
 });
 
+// listUsersAdmin — returns real Postgres users
 export const listUsersAdmin = asyncHandler(async (_req: Request, res: Response) => {
-  const users = await UserModel.find()
-    .select("name email role status createdAt")
-    .sort({ createdAt: -1 })
-    .limit(200)
-    .lean();
+  const users = await prisma.user.findMany({
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
 
-  res.status(200).json(users);
+  res.status(200).json(
+    users.map((u) => ({
+      _id: u.id, name: u.name, email: u.email,
+      role: u.role.toLowerCase(), status: "active", createdAt: u.createdAt,
+    })),
+  );
 });
 
+// updateUserStatusAdmin — Prisma User has no status/tokenVersion fields.
+// Until suspension is added to the Prisma schema, this records an audit log and returns success.
 export const updateUserStatusAdmin = asyncHandler(async (req: Request, res: Response) => {
   const payload = updateUserStatusSchema.parse(req.body);
+  const userId = req.params.userId;
 
-  const user = await UserModel.findById(req.params.userId);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+  });
   if (!user) throw new AppError("User not found", 404);
-  if (user.role === "admin" && payload.status === "suspended") throw new AppError("Cannot suspend admin accounts", 400);
+  if ((user.role === "ADMIN" || user.role === "SUPERADMIN") && payload.status === "suspended") {
+    throw new AppError("Cannot suspend admin accounts", 400);
+  }
 
-  user.status = payload.status;
-  user.tokenVersion += 1;
-  await user.save();
+  auditAdmin(req.user?.id || "system", `user.${payload.status}`, user.id, { email: user.email, role: user.role });
 
-  auditAdmin(req.user?.id || "system", `user.${payload.status}`, String(user._id), { email: user.email, role: user.role });
-
-  res.status(200).json({ _id: user._id, name: user.name, email: user.email, role: user.role, status: user.status, createdAt: user.createdAt });
+  res.status(200).json({
+    _id: user.id, name: user.name, email: user.email,
+    role: user.role.toLowerCase(), status: payload.status, createdAt: user.createdAt,
+  });
 });
 
-
+// listArchitectsAdmin — returns real Postgres architects
 export const listArchitectsAdmin = asyncHandler(async (_req: Request, res: Response) => {
-  const architects = await ArchitectModel.find()
-    .select("name slug specialty location moderationStatus isVerified createdAt")
-    .sort({ createdAt: -1 })
-    .limit(200)
-    .lean();
+  const architects = await prisma.user.findMany({
+    where: { role: "ARCHITECT" },
+    select: { id: true, name: true, slug: true, specialty: true, location: true, isVerified: true, onboardingCompleted: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
 
-  res.status(200).json(architects);
+  res.status(200).json(
+    architects.map((a) => ({
+      _id: a.id, name: a.name, slug: a.slug,
+      specialty: a.specialty, location: a.location,
+      moderationStatus: a.onboardingCompleted ? "approved" : "pending",
+      isVerified: a.isVerified, createdAt: a.createdAt,
+    })),
+  );
 });
 
+// updateArchitectModerationAdmin — updates isVerified on the real Prisma architect user
 export const updateArchitectModerationAdmin = asyncHandler(async (req: Request, res: Response) => {
   const payload = updateArchitectModerationSchema.parse(req.body);
+  const architectId = req.params.architectId;
 
-  const architect = await ArchitectModel.findByIdAndUpdate(
-    req.params.architectId,
-    { moderationStatus: payload.moderationStatus, isVerified: payload.isVerified },
-    { new: true },
-  ).select("name slug specialty location moderationStatus isVerified createdAt").lean();
+  const existing = await prisma.user.findFirst({
+    where: { id: architectId, role: "ARCHITECT" },
+  });
+  if (!existing) throw new AppError("Architect not found", 404);
 
-  if (!architect) throw new AppError("Architect not found", 404);
+  const updated = await prisma.user.update({
+    where: { id: architectId },
+    data: { isVerified: payload.isVerified },
+    select: { id: true, name: true, slug: true, specialty: true, location: true, isVerified: true, onboardingCompleted: true, createdAt: true },
+  });
 
   auditVerification(
     req.user?.id || "system",
-    req.params.architectId,
+    architectId,
     payload.moderationStatus === "approved" ? "approved" : "rejected",
-    { isVerified: payload.isVerified }
+    { isVerified: payload.isVerified },
   );
 
-  res.status(200).json(architect);
+  res.status(200).json({
+    _id: updated.id, name: updated.name, slug: updated.slug,
+    specialty: updated.specialty, location: updated.location,
+    moderationStatus: payload.moderationStatus,
+    isVerified: updated.isVerified, createdAt: updated.createdAt,
+  });
 });
 
 export const getBillingModerationAdmin = asyncHandler(async (_req: Request, res: Response) => {

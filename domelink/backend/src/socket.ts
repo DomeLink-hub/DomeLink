@@ -1,5 +1,6 @@
 import { Server as SocketIOServer } from "socket.io";
 import type { Server } from "http";
+import { env } from "./config/env.js";
 
 let ioInstance: SocketIOServer | null = null;
 
@@ -11,10 +12,24 @@ export const emitToUserRoom = (userId: string, event: string, payload: unknown) 
 };
 
 export const initSocket = (server: Server) => {
+  // Mirror the same allowed-origins logic used by the Express CORS middleware in app.ts.
+  // In production FRONTEND_URL must be set to the exact frontend domain.
+  // In development it falls back to the same localhost ports Express allows.
+  const socketOrigin: string | string[] =
+    env.NODE_ENV === "production"
+      ? env.FRONTEND_URL
+      : [
+          env.FRONTEND_URL,
+          "http://localhost:5173",
+          "http://localhost:8080",
+          "http://localhost:3000",
+        ].filter(Boolean) as string[];
+
   const io = new SocketIOServer(server, {
     cors: {
-      origin: "*", // Adjust this in production
-      methods: ["GET", "POST"]
+      origin: socketOrigin,
+      methods: ["GET", "POST"],
+      credentials: true,
     },
   });
 

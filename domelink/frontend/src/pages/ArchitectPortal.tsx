@@ -1,6 +1,4 @@
-import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -13,8 +11,6 @@ import DomeCTA from "@/components/layout/DomeCTA";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
-import StudioScene from "@/components/3d/StudioScene";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const ArchitectPortal = () => {
   const navigate = useNavigate();
@@ -26,17 +22,10 @@ const ArchitectPortal = () => {
     queryKey: queryKeys.consultations(),
     queryFn: api.getConsultations,
   });
-
-  const throughputData = useMemo(
-    () => [
-      { label: "Mon", value: (stats?.pendingRequests ?? 0) + 4 },
-      { label: "Tue", value: (stats?.pendingRequests ?? 0) + 6 },
-      { label: "Wed", value: (stats?.pendingRequests ?? 0) + 3 },
-      { label: "Thu", value: (stats?.pendingRequests ?? 0) + 8 },
-      { label: "Fri", value: (stats?.pendingRequests ?? 0) + 5 },
-    ],
-    [stats?.pendingRequests],
-  );
+  const { data: projects = [] } = useQuery({
+    queryKey: ["architect-projects"],
+    queryFn: api.getMyProjects,
+  });
 
   const handleLogout = async () => {
     api.clearToken();
@@ -75,29 +64,58 @@ const ArchitectPortal = () => {
             <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-8 mb-10">
               <div className="dome-card p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-display-sm">Studio Preview</h3>
-                  <span className="text-caption text-muted-foreground">Live model</span>
+                  <h3 className="text-display-sm">Studio Stats</h3>
+                  <span className="text-caption text-muted-foreground">Live data</span>
                 </div>
-                <StudioScene className="h-64 w-full" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Total Requests</p>
+                    <p className="text-display-sm mt-2">{stats?.totalRequests ?? 0}</p>
+                  </div>
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Accepted</p>
+                    <p className="text-display-sm mt-2">{stats?.acceptedRequests ?? 0}</p>
+                  </div>
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Completed</p>
+                    <p className="text-display-sm mt-2">{stats?.closedRequests ?? 0}</p>
+                  </div>
+                  <div className="dome-panel p-4">
+                    <p className="text-caption text-muted-foreground">Total Earnings</p>
+                    <p className="text-display-sm mt-2">₹{(stats?.totalEarnings ?? 0).toLocaleString("en-IN")}</p>
+                  </div>
+                </div>
               </div>
               <div className="dome-card p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-display-sm">Request Throughput</h3>
-                  <span className="text-caption text-muted-foreground">This week</span>
+                  <h3 className="text-display-sm">Active Projects</h3>
+                  <span className="text-caption text-muted-foreground">{projects.filter(p => p.status !== "completed").length} active</span>
                 </div>
-                <ChartContainer
-                  config={{
-                    value: { label: "Requests", color: "hsl(var(--primary))" },
-                  }}
-                  className="h-48"
-                >
-                  <AreaChart data={throughputData} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area type="monotone" dataKey="value" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} />
-                  </AreaChart>
-                </ChartContainer>
+                {projects.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-center space-y-2">
+                    <span className="text-muted-foreground text-xl">◇</span>
+                    <p className="text-body-sm text-muted-foreground">No projects yet</p>
+                    <p className="text-caption text-muted-foreground">Projects appear here once a consultation is accepted</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-52 overflow-y-auto">
+                    {projects.slice(0, 5).map((project) => (
+                      <div key={project.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-medium truncate">{project.title}</p>
+                          <p className="text-caption text-muted-foreground">{project.status}</p>
+                        </div>
+                        {project.progress !== undefined && (
+                          <div className="w-16">
+                            <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+                              <div className="h-full bg-primary" style={{ width: `${project.progress}%` }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <Grid cols={3} gap="large">
@@ -105,9 +123,9 @@ const ArchitectPortal = () => {
                 <h3 className="text-display-sm mb-6">Overview</h3>
                 <ul className="space-y-4 text-body-sm text-muted-foreground">
                   <li>Total Requests: {stats?.totalRequests ?? 0}</li>
-                  <li>Pending: {stats?.pendingRequests ?? 0}</li>
                   <li>Accepted: {stats?.acceptedRequests ?? 0}</li>
-                  <li>Monthly Earnings: ${(stats?.monthlyEarnings ?? 0).toLocaleString()}</li>
+                  <li>Completed: {stats?.closedRequests ?? 0}</li>
+                  <li>Total Earnings: ₹{(stats?.totalEarnings ?? 0).toLocaleString("en-IN")}</li>
                 </ul>
               </div>
 
@@ -126,7 +144,7 @@ const ArchitectPortal = () => {
                     {consultations.slice(0, 4).map((consultation) => (
                       <div key={consultation._id} className="rounded-xl border border-border p-4">
                         <div className="flex items-center justify-between gap-4">
-                          <p className="text-body font-medium">{consultation.userId.name}</p>
+                          <p className="text-body font-medium">{consultation.userId?.name ?? "Client"}</p>
                           <span className="dome-chip">{consultation.status}</span>
                         </div>
                         <p className="text-body-sm text-muted-foreground mt-2 line-clamp-2">{consultation.message}</p>

@@ -1,9 +1,13 @@
 import type { Request, Response } from "express";
-import { SavedArchitectModel } from "../models/SavedArchitect.js";
-import { ArchitectModel } from "../models/Architect.js";
+import prisma from "../config/prisma.js";
 import { AppError } from "../utils/AppError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import prisma from "../config/prisma.js";
+
+const normalizeStyleTags = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map(String).filter((s) => s.trim().length > 0);
+  if (typeof value === "string" && value.trim().length > 0) return [value.trim()];
+  return [];
+};
 
 export const saveArchitect = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user?.id) throw new AppError("Unauthorized", 401);
@@ -15,17 +19,14 @@ export const saveArchitect = asyncHandler(async (req: Request, res: Response) =>
     where: { id: architectId, role: "ARCHITECT" },
     select: { id: true },
   });
+  if (!architectUser) throw new AppError("Architect not found", 404);
 
-  if (!architectUser) {
-    const legacyArchitect = await ArchitectModel.findById(architectId);
-    if (!legacyArchitect) throw new AppError("Architect not found", 404);
-  }
-
-  await SavedArchitectModel.updateOne(
-    { userId: req.user.id, architectId },
-    { $setOnInsert: { userId: req.user.id, architectId } },
-    { upsert: true },
-  );
+  // Upsert — ignore if already saved (unique constraint)
+  await prisma.savedArchitect.upsert({
+    where: { userId_architectId: { userId: req.user.id, architectId } },
+    update: {},
+    create: { userId: req.user.id, architectId },
+  });
 
   res.status(201).json({ ok: true });
 });
@@ -33,9 +34,8 @@ export const saveArchitect = asyncHandler(async (req: Request, res: Response) =>
 export const unsaveArchitect = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user?.id) throw new AppError("Unauthorized", 401);
 
-  await SavedArchitectModel.deleteOne({
-    userId: req.user.id,
-    architectId: req.params.architectId,
+  await prisma.savedArchitect.deleteMany({
+    where: { userId: req.user.id, architectId: req.params.architectId },
   });
 
   res.status(200).json({ ok: true });
@@ -44,127 +44,79 @@ export const unsaveArchitect = asyncHandler(async (req: Request, res: Response) 
 export const getSavedArchitects = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user?.id) throw new AppError("Unauthorized", 401);
 
-  const saved = await SavedArchitectModel.find({ userId: req.user.id })
-    .select({ architectId: 1, _id: 0 })
-    .lean();
-  const architectIds = saved.map((entry) => String(entry.architectId));
+  const saved = await prisma.savedArchitect.findMany({
+    where: { userId: req.user.id },
+    select: { architectId: true },
+  });
+
+  const architectIds = saved.map((s) => s.architectId);
 
   const architects = architectIds.length
     ? await prisma.user.findMany({
         where: { id: { in: architectIds }, role: "ARCHITECT" },
         select: {
-          id: true,
-          slug: true,
-          name: true,
-          location: true,
-          specialty: true,
-          rating: true,
-          startingPrice: true,
-          about: true,
-          heroImage: true,
-          profileImage: true,
-          experience: true,
-          teamSize: true,
-          isVerified: true,
-          isFeatured: true,
-          consultationFee: true,
-          completedProjects: true,
-          reviewCount: true,
-          trustScore: true,
-          designStyles: true,
-          projectTypes: true,
-          citiesServed: true,
-          servicesOffered: true,
+          id: true, slug: true, name: true, location: true, specialty: true,
+          rating: true, startingPrice: true, about: true, heroImage: true,
+          profileImage: true, experience: true, teamSize: true, isVerified: true,
+          isFeatured: true, consultationFee: true, completedProjects: true,
+          reviewCount: true, trustScore: true, designStyles: true, projectTypes: true,
+          citiesServed: true, servicesOffered: true,
         },
       })
     : [];
 
-  const payload = architects.map((architect) => ({
-    _id: architect.id,
-    slug: architect.slug || architect.id,
-    name: architect.name,
-    location: architect.location || "",
-    specialty: architect.specialty || "",
-    rating: architect.rating || 0,
-    startingPrice: architect.startingPrice || 0,
-    about: architect.about || "",
-    heroImage: architect.heroImage || "",
-    profileImage: architect.profileImage || "",
-    projects: [],
-    templates: [],
-    experience: architect.experience || "",
-    teamSize: architect.teamSize || 1,
-    isVerified: architect.isVerified,
-    isFeatured: architect.isFeatured,
-    consultationFee: architect.consultationFee,
-    completedProjects: architect.completedProjects,
-    reviewCount: architect.reviewCount,
-    trustScore: architect.trustScore,
-    designStyles: normalizeStyleTags(architect.designStyles),
-    projectTypes: normalizeStyleTags(architect.projectTypes),
-    citiesServed: normalizeStyleTags(architect.citiesServed),
-    servicesOffered: normalizeStyleTags(architect.servicesOffered),
-  }));
-
-  res.status(200).json(payload);
+  res.status(200).json(
+    architects.map((a) => ({
+      _id: a.id, slug: a.slug || a.id, name: a.name,
+      location: a.location || "", specialty: a.specialty || "",
+      rating: a.rating || 0, startingPrice: a.startingPrice || 0,
+      about: a.about || "", heroImage: a.heroImage || "",
+      profileImage: a.profileImage || "", projects: [], templates: [],
+      experience: a.experience || "", teamSize: a.teamSize || 1,
+      isVerified: a.isVerified, isFeatured: a.isFeatured,
+      consultationFee: a.consultationFee, completedProjects: a.completedProjects,
+      reviewCount: a.reviewCount, trustScore: a.trustScore,
+      designStyles: normalizeStyleTags(a.designStyles),
+      projectTypes: normalizeStyleTags(a.projectTypes),
+      citiesServed: normalizeStyleTags(a.citiesServed),
+      servicesOffered: normalizeStyleTags(a.servicesOffered),
+    })),
+  );
 });
-
-const normalizeStyleTags = (value: unknown): string[] => {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item)).filter((item) => item.trim().length > 0);
-  }
-  if (typeof value === "string" && value.trim().length > 0) {
-    return [value.trim()];
-  }
-  return [];
-};
 
 export const getMySavers = asyncHandler(async (req: Request, res: Response) => {
   const architectId = req.user?.id;
   if (!architectId) throw new AppError("Unauthorized", 401);
 
-  const savedRecords = await SavedArchitectModel.find({ architectId })
-    .select({ userId: 1, createdAt: 1, _id: 0 })
-    .lean();
-
-  if (savedRecords.length === 0) {
-    return res.status(200).json([]);
-  }
-
-  const homeownerIds = savedRecords.map((record) => String(record.userId));
-  const homeowners = await prisma.user.findMany({
-    where: { id: { in: homeownerIds }, role: "CLIENT" },
-    select: {
-      id: true,
-      city: true,
-      projectType: true,
-      budgetMin: true,
-      budgetMax: true,
-      preferredStyles: true,
-    },
+  const savedRecords = await prisma.savedArchitect.findMany({
+    where: { architectId },
+    select: { userId: true, createdAt: true },
   });
 
-  const homeownersById = new Map(homeowners.map((homeowner) => [homeowner.id, homeowner]));
+  if (savedRecords.length === 0) return res.status(200).json([]);
 
-  const payload = savedRecords
-    .map((record) => {
-      const homeowner = homeownersById.get(String(record.userId));
-      if (!homeowner) return null;
-      return {
-        userId: homeowner.id,
-        city: homeowner.city,
-        projectType: homeowner.projectType,
-        budgetRange: {
-          min: homeowner.budgetMin,
-          max: homeowner.budgetMax,
-        },
-        styleTags: normalizeStyleTags(homeowner.preferredStyles),
-        savedAt: record.createdAt,
-      };
-    })
-    .filter(Boolean);
+  const homeownerIds = savedRecords.map((r) => r.userId);
+  const homeowners = await prisma.user.findMany({
+    where: { id: { in: homeownerIds }, role: "CLIENT" },
+    select: { id: true, city: true, projectType: true, budgetMin: true, budgetMax: true, preferredStyles: true },
+  });
 
-  return res.status(200).json(payload);
+  const homeownersById = new Map(homeowners.map((h) => [h.id, h]));
+
+  return res.status(200).json(
+    savedRecords
+      .map((record) => {
+        const h = homeownersById.get(record.userId);
+        if (!h) return null;
+        return {
+          userId: h.id, city: h.city, projectType: h.projectType,
+          budgetRange: { min: h.budgetMin, max: h.budgetMax },
+          styleTags: normalizeStyleTags(h.preferredStyles),
+          savedAt: record.createdAt,
+        };
+      })
+      .filter(Boolean),
+  );
 });
 
 export const startConversationWithSaver = asyncHandler(async (req: Request, res: Response) => {
@@ -174,7 +126,9 @@ export const startConversationWithSaver = asyncHandler(async (req: Request, res:
   const homeownerId = String(req.params.userId || "").trim();
   if (!homeownerId) throw new AppError("Homeowner id is required", 400);
 
-  const savedRecord = await SavedArchitectModel.findOne({ userId: homeownerId, architectId }).lean();
+  const savedRecord = await prisma.savedArchitect.findUnique({
+    where: { userId_architectId: { userId: homeownerId, architectId } },
+  });
   if (!savedRecord) throw new AppError("This homeowner has not saved you", 404);
 
   const [architect, homeowner] = await Promise.all([
@@ -192,37 +146,15 @@ export const startConversationWithSaver = asyncHandler(async (req: Request, res:
 
   if (!consultation) {
     consultation = await prisma.consultation.create({
-      data: {
-        userId: homeownerId,
-        architectId,
-        status: "PENDING",
-        message: "Architect reached out after you saved their profile.",
-        amount: 0,
-      },
+      data: { userId: homeownerId, architectId, status: "PENDING", message: "Architect reached out after you saved their profile.", amount: 0 },
     });
   }
 
   return res.status(200).json({
-    _id: consultation.id,
-    id: consultation.id,
-    userId: {
-      _id: homeowner.id,
-      id: homeowner.id,
-      name: homeowner.name,
-      avatar: homeowner.avatar,
-      role: homeowner.role,
-    },
-    architectId: {
-      _id: architect.id,
-      id: architect.id,
-      name: architect.name,
-      avatar: architect.avatar,
-      role: architect.role,
-    },
-    message: consultation.message,
-    projectType: consultation.projectType,
-    status: consultation.status,
-    amount: consultation.amount,
-    createdAt: consultation.createdAt,
+    _id: consultation.id, id: consultation.id,
+    userId: { _id: homeowner.id, id: homeowner.id, name: homeowner.name, avatar: homeowner.avatar, role: homeowner.role },
+    architectId: { _id: architect.id, id: architect.id, name: architect.name, avatar: architect.avatar, role: architect.role },
+    message: consultation.message, projectType: consultation.projectType,
+    status: consultation.status, amount: consultation.amount, createdAt: consultation.createdAt,
   });
 });

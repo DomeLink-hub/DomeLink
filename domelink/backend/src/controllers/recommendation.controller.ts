@@ -1,27 +1,14 @@
 import type { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
-import { ProjectBriefModel } from "../models/ProjectBrief.js";
-import { SavedArchitectModel } from "../models/SavedArchitect.js";
+import prisma from "../config/prisma.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-
-const prisma = new PrismaClient();
 import { rankArchitects } from "../utils/matchingEngine.js";
 import { generateRecommendationReason } from "../services/ai/recommendationAI.service.js";
 
 const parseBudgetRange = (input?: string) => {
   if (!input) return { min: undefined, max: undefined };
-  const values = input
-    .replace(/,/g, "")
-    .match(/\d+/g)
-    ?.map((value) => Number(value))
-    .filter((value) => !Number.isNaN(value));
-
-  if (!values || values.length === 0) {
-    return { min: undefined, max: undefined };
-  }
-  if (values.length === 1) {
-    return { min: values[0], max: undefined };
-  }
+  const values = input.replace(/,/g, "").match(/\d+/g)?.map(Number).filter((v) => !Number.isNaN(v));
+  if (!values || values.length === 0) return { min: undefined, max: undefined };
+  if (values.length === 1) return { min: values[0], max: undefined };
   return { min: Math.min(...values), max: Math.max(...values) };
 };
 
@@ -38,16 +25,11 @@ export const getRecommendations = asyncHandler(async (req: Request, res: Respons
     preferFeatured: req.query.featured === "true" ? true : undefined,
   };
 
-  const architects = await prisma.user.findMany({
-    where: { role: 'ARCHITECT' },
-    orderBy: { rating: 'desc' }
-  });
-  const saved = req.user?.id
-    ? await SavedArchitectModel.find({ userId: req.user.id })
-    : [];
-  const consultations = req.user?.id
-    ? await prisma.consultation.findMany({ where: { userId: req.user.id } })
-    : [];
+  const [architects, saved, consultations] = await Promise.all([
+    prisma.user.findMany({ where: { role: "ARCHITECT" }, orderBy: { rating: "desc" } }),
+    req.user?.id ? prisma.savedArchitect.findMany({ where: { userId: req.user.id } }) : [],
+    req.user?.id ? prisma.consultation.findMany({ where: { userId: req.user.id } }) : [],
+  ]);
 
   const ranked = rankArchitects(architects, prefs, saved, consultations);
   const context = [
@@ -56,22 +38,12 @@ export const getRecommendations = asyncHandler(async (req: Request, res: Respons
     prefs.projectType ? `Project type: ${prefs.projectType}` : null,
     prefs.preferredStyle ? `Style: ${prefs.preferredStyle}` : null,
     prefs.budgetMin || prefs.budgetMax ? `Budget: ${prefs.budgetMin ?? ""}-${prefs.budgetMax ?? ""}` : null,
-  ]
-    .filter(Boolean)
-    .join(" | ");
+  ].filter(Boolean).join(" | ");
 
   const enriched = await Promise.all(
     ranked.map(async (architect) => {
-      const plainArchitect = typeof (architect as { toObject?: () => unknown }).toObject === "function"
-        ? (architect as { toObject: () => Record<string, unknown> }).toObject()
-        : (architect as unknown as Record<string, unknown>);
-
-      const recommendationReason = await generateRecommendationReason(plainArchitect, context);
-
-      return {
-        ...plainArchitect,
-        recommendationReason,
-      };
+      const plain = architect as unknown as Record<string, unknown>;
+      return { ...plain, recommendationReason: await generateRecommendationReason(plain, context) };
     }),
   );
 
@@ -81,9 +53,18 @@ export const getRecommendations = asyncHandler(async (req: Request, res: Respons
 export const getHomeownerRecommendations = asyncHandler(async (req: Request, res: Response) => {
   const homeownerId = req.user?.id;
 
-  const latestBrief = homeownerId
-    ? await ProjectBriefModel.findOne({ homeownerId }).sort({ updatedAt: -1 })
-    : null;
+  // Load latest project brief from Prisma (ProjectBrief table already exists in Postgres
+  // as a Mongoose-backed model — keep reading from Mongo for now since it's not in scope
+  // for this migration; fall back gracefully if no brief exists)
+  let latestBrief: { budget?: string; plotSize?: string; stylePreferences?: string[]; location?: string; projectType?: string } | null = null;
+  try {
+    // ProjectBriefModel is still Mongoose-backed — import dynamically to avoid breaking
+    const { ProjectBriefModel } = await import("../models/ProjectBrief.js");
+    latestBrief = homeownerId ? await ProjectBriefModel.findOne({ homeownerId }).sort({ updatedAt: -1 }) : null;
+  } catch {
+    // If Mongo is unavailable, continue without brief context
+    latestBrief = null;
+  }
 
   const budgetFromBrief = parseBudgetRange(latestBrief?.budget);
 
@@ -97,7 +78,6 @@ export const getHomeownerRecommendations = asyncHandler(async (req: Request, res
     projectType: req.query.projectType ? String(req.query.projectType) : latestBrief?.projectType,
     requireVerified: req.query.verified === "true" ? true : undefined,
     preferFeatured: req.query.featured === "true" ? true : undefined,
-    // Avora-enhanced signals
     complexityScore: req.query.complexityScore ? Number(req.query.complexityScore) : undefined,
     interiorTier: req.query.interiorTier ? String(req.query.interiorTier) : undefined,
     architectTier: req.query.architectTier ? String(req.query.architectTier) : undefined,
@@ -106,8 +86,8 @@ export const getHomeownerRecommendations = asyncHandler(async (req: Request, res
   };
 
   const [architects, saved, consultations] = await Promise.all([
-    prisma.user.findMany({ where: { role: 'ARCHITECT' }, orderBy: { rating: 'desc' } }),
-    homeownerId ? SavedArchitectModel.find({ userId: homeownerId }) : [],
+    prisma.user.findMany({ where: { role: "ARCHITECT" }, orderBy: { rating: "desc" } }),
+    homeownerId ? prisma.savedArchitect.findMany({ where: { userId: homeownerId } }) : [],
     homeownerId ? prisma.consultation.findMany({ where: { userId: homeownerId } }) : [],
   ]);
 
@@ -117,22 +97,12 @@ export const getHomeownerRecommendations = asyncHandler(async (req: Request, res
     latestBrief?.projectType ? `Project type: ${latestBrief.projectType}` : null,
     latestBrief?.budget ? `Budget: ${latestBrief.budget}` : null,
     latestBrief?.stylePreferences?.length ? `Styles: ${latestBrief.stylePreferences.join(", ")}` : null,
-  ]
-    .filter(Boolean)
-    .join(" | ");
+  ].filter(Boolean).join(" | ");
 
   const enriched = await Promise.all(
     ranked.map(async (architect) => {
-      const plainArchitect = typeof (architect as { toObject?: () => unknown }).toObject === "function"
-        ? (architect as { toObject: () => Record<string, unknown> }).toObject()
-        : (architect as unknown as Record<string, unknown>);
-
-      const recommendationReason = await generateRecommendationReason(plainArchitect, context);
-
-      return {
-        ...plainArchitect,
-        recommendationReason,
-      };
+      const plain = architect as unknown as Record<string, unknown>;
+      return { ...plain, recommendationReason: await generateRecommendationReason(plain, context) };
     }),
   );
 

@@ -106,11 +106,12 @@ const Footer = () => {
 
         <div className="mt-16 pt-8 border-t border-border/70 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-body-sm text-muted-foreground">
-            © 2026 DomeLink. All rights reserved.
+            © 2026 DomeLink. All rights reserved. | Contact: support@domelink.in
           </p>
           <div className="flex items-center gap-6">
-            <span className="text-caption text-muted-foreground">Privacy</span>
-            <span className="text-caption text-muted-foreground">Terms</span>
+            <Link to="/privacy" className="text-caption text-muted-foreground hover:text-foreground">Privacy</Link>
+            <Link to="/terms" className="text-caption text-muted-foreground hover:text-foreground">Terms</Link>
+            <Link to="/refund-policy" className="text-caption text-muted-foreground hover:text-foreground">Refund Policy</Link>
           </div>
         </div>
       </Container>

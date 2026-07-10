@@ -10,6 +10,7 @@ module.exports = {
       instances: "max",           // cluster mode — one per CPU core
       exec_mode: "cluster",
       watch: false,
+      exp_backoff_restart_delay: 100,
       max_memory_restart: "512M",
       env: {
         NODE_ENV: "development",

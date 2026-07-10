@@ -15,7 +15,9 @@ const roleHome = (role: "homeowner" | "architect") => (role === "architect" ? "/
 const routeForUser = (user: { role: string; onboardingCompleted?: boolean }) => {
   const isClient = user.role === "CLIENT" || user.role === "homeowner";
   if (isClient && user.onboardingCompleted === false) return "/homeowner/onboarding";
-  if (user.role === "ARCHITECT" || user.role === "architect") return "/architect/dashboard";
+  if (user.role === "ARCHITECT" || user.role === "architect") {
+    return user.onboardingCompleted === false ? "/architect/onboarding" : "/architect/dashboard";
+  }
   return "/homeowner/dashboard";
 };
 
@@ -143,6 +145,20 @@ const Signup = () => {
                     className="dome-input"
                     placeholder="••••••••"
                   />
+                </div>
+
+                <div className="flex items-start gap-3 mt-4">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    required
+                    className="mt-1 h-4 w-4 rounded border-border/50 bg-transparent text-primary focus:ring-primary"
+                  />
+                  <label htmlFor="terms" className="text-caption text-muted-foreground">
+                    By creating an account, you agree to our{" "}
+                    <Link to="/terms" className="text-foreground underline hover:text-primary">Terms of Service</Link> and{" "}
+                    <Link to="/privacy" className="text-foreground underline hover:text-primary">Privacy Policy</Link>.
+                  </label>
                 </div>
 
                 {formError && (

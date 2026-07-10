@@ -63,6 +63,11 @@ model User {
   avatar   String?
 
   // --- Architect Specific Fields ---
+  firmName          String?
+  coaRegistrationNumber String?
+  gstNumber         String?
+  yearsOfExperience Int?
+  state             String?
   location          String?
   specialty         String?
   startingPrice     Int?
@@ -70,19 +75,32 @@ model User {
   teamSize          Int?
   heroImage         String?
   profileImage      String?
+  profilePhoto      String?
   about             String?
   slug              String? @unique
   isVerified        Boolean @default(false)
   isFeatured        Boolean @default(false)
   consultationFee   Int?
+  startingProjectBudget Int?
+  maximumProjectBudget Int?
   rating            Float   @default(0)
   completedProjects Int     @default(0)
   reviewCount       Int     @default(0)
   trustScore        Float   @default(0)
+  onlineConsultation Boolean @default(false)
+  offlineConsultation Boolean @default(false)
+  siteVisitAvailable Boolean @default(false)
+  expertise         Json?
   designStyles      Json?
+  workingStyles     Json?
   projectTypes      Json?
   citiesServed      Json?
+  serviceCities     Json?
   servicesOffered   Json?
+  portfolioImages   Json?
+  awards            Json?
+  certifications    Json?
+  profileCompletionPercentage Int @default(0)
 
   // --- Homeowner Onboarding Fields ---
   city                String?

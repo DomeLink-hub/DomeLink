@@ -196,9 +196,46 @@ export const markChatRead = asyncHandler(async (req: Request, res: Response) => 
   res.status(200).json({ updatedCount });
 });
 
-// Optional: Grouped chat endpoint if your frontend api.getChatGrouped relies on it
+// Groups messages by calendar date (YYYY-MM-DD) in UTC.
+// Returns the shape GroupedChatResponse the frontend expects:
+// { consultationId, grouped: [{ date, messages }] } ordered oldest-date first.
 export const getChatGrouped = asyncHandler(async (req: Request, res: Response) => {
-    // Implement grouping logic here, or just let the frontend group the standard history
-    // For now, redirecting to the standard history is a safe fallback
-    res.redirect(`/api/chat/${req.params.consultationId}`);
+  const { consultationId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+  const consultation = await prisma.consultation.findUnique({
+    where: { id: consultationId },
+  });
+
+  if (!consultation || (consultation.userId !== userId && consultation.architectId !== userId)) {
+    return res.status(403).json({ message: "Access denied to this chat" });
+  }
+
+  const messages = await prisma.chatMessage.findMany({
+    where: { consultationId },
+    include: {
+      sender: {
+        select: { id: true, name: true, role: true, avatar: true },
+      },
+    },
+    orderBy: { timestamp: "asc" },
+  });
+
+  // Group by calendar date string "YYYY-MM-DD" (UTC) to match the shape
+  // the frontend GroupedChatResponse interface expects.
+  const groupMap = new Map<string, typeof messages>();
+  for (const message of messages) {
+    const date = message.timestamp.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    if (!groupMap.has(date)) groupMap.set(date, []);
+    groupMap.get(date)!.push(message);
+  }
+
+  const grouped = Array.from(groupMap.entries()).map(([date, msgs]) => ({
+    date,
+    messages: msgs,
+  }));
+
+  res.status(200).json({ consultationId, grouped });
 });

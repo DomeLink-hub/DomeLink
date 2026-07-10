@@ -1,15 +1,22 @@
 import dotenv from "dotenv";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(currentDir, "../../.env") });
+const baseEnvPath = path.resolve(currentDir, "../../.env");
+const localEnvPath = path.resolve(currentDir, "../../.env.local");
+
+dotenv.config({ path: baseEnvPath });
+if (fs.existsSync(localEnvPath)) {
+  dotenv.config({ path: localEnvPath, override: true });
+}
 
 export const env = {
   PORT:                   process.env.PORT || 5000,
   JWT_SECRET:             process.env.JWT_SECRET || "fallback_secret_change_in_production",
   DATABASE_URL:           process.env.DATABASE_URL,
-  MONGO_URI:              process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/domelink",
+  MONGO_URI:              process.env.MONGO_URI || process.env.MONGODB_URI || "",
   FRONTEND_URL:           process.env.FRONTEND_URL || "http://localhost:8080",
   NODE_ENV:               process.env.NODE_ENV || "development",
   JWT_EXPIRES_IN:         process.env.JWT_EXPIRES_IN || "7d",
@@ -37,6 +44,13 @@ export const validateEnv = () => {
   }
   for (const key of recommended) {
     if (!process.env[key]) missingRecommended.push(key);
+  }
+
+  // In production, RAZORPAY_WEBHOOK_SECRET must be explicitly set.
+  // Falling back to RAZORPAY_KEY_SECRET at runtime is a security risk in prod
+  // (the webhook secret and API key secret should be different values).
+  if (env.NODE_ENV === "production" && !process.env.RAZORPAY_WEBHOOK_SECRET) {
+    missing.push("RAZORPAY_WEBHOOK_SECRET");
   }
 
   if (missing.length > 0) {

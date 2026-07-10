@@ -26,8 +26,8 @@ const ArchitectDiscoveryCard = ({
   onUnsave,
 }: ArchitectDiscoveryCardProps) => {
   const image = architect.heroImage || architect.profileImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80";
-  const styles = (architect.designStyles || architect.projectTypes || []).slice(0, 3);
-  const cities = (architect.citiesServed || []).slice(0, 2);
+  const styles = (architect.workingStyles || architect.designStyles || architect.projectTypes || []).slice(0, 3);
+  const cities = (architect.serviceCities || architect.citiesServed || []).slice(0, 2);
   const portfolioCount = architect.portfolioProjects?.length ?? architect.completedProjects ?? 0;
 
   return (
@@ -109,8 +109,8 @@ const ArchitectDiscoveryCard = ({
               <div className="mt-1 text-body font-medium">{Math.round((architect.trustScore || 0) * 100)}%</div>
             </div>
             <div className="dome-panel p-3">
-              <div className="text-caption text-muted-foreground">Reviews</div>
-              <div className="mt-1 text-body font-medium">{architect.reviewCount ?? 0}</div>
+              <div className="text-caption text-muted-foreground">Completion</div>
+              <div className="mt-1 text-body font-medium">{architect.profileCompletionPercentage ?? 0}%</div>
             </div>
           </div>
 

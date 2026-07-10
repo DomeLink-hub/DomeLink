@@ -72,8 +72,11 @@ export default function AvoraProjectCopilot({ context, compact = false }: AvoraP
     queryKey: ["project-health", JSON.stringify(context)],
     queryFn: () => api.getProjectHealth(context || {}),
     enabled: !!context,
-    staleTime: 1000 * 60 * 10, // cache 10 min — avoid excessive AI calls
-    retry: 1,
+    staleTime: Infinity, // never stale in current session
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    retry: false,
   });
 
   if (!context) return null;

@@ -34,7 +34,6 @@ const normaliseRole = (role?: string): "guest" | "homeowner" | "architect" | "ad
 
 /* ── nav link sets ───────────────────────────────────────────── */
 const publicLinks = [
-  { label: "Find Architects", to: "/find-architects" },
   { label: "Explore",         to: "/explore" },
   { label: "Pricing",         to: "/pricing" },
 ];
@@ -52,7 +51,6 @@ const resourceLinks = [
 const homeownerNav = [
   { label: "Dashboard",       to: "/homeowner/dashboard" },
   { label: "Messages",        to: "/messages" },
-  { label: "Find Architects", to: "/find-architects" },
   { label: "Explore",         to: "/explore" },
   { label: "Avora Estimate",  to: "/homeowner/budget-reality" },
   { label: "Saved",           to: "/homeowner/saved" },

@@ -21,4 +21,5 @@ export const queryKeys = {
   supportTickets: () => ["support-tickets"] as const,
   analytics: () => ["analytics"] as const,
   clientLeads: (filters?: Record<string, unknown>) => ["client-leads", filters] as const,
+  architectInsights: () => ["architect-insights"] as const,
 };

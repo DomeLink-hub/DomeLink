@@ -71,6 +71,7 @@ const Explore = () => {
         verified: appliedFilters.verified || undefined,
         featured: appliedFilters.featured || undefined,
       }),
+    staleTime: 0, // Force background refetch on every mount for fresh data
   });
 
   // Sort architects client-side based on sortBy
@@ -79,7 +80,9 @@ const Explore = () => {
     if (appliedFilters.sortBy === "rating") return arr.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     if (appliedFilters.sortBy === "trust") return arr.sort((a, b) => (b.trustScore || 0) - (a.trustScore || 0));
     if (appliedFilters.sortBy === "response") return arr.sort((a, b) => (a.consultationFee || 0) - (b.consultationFee || 0));
-    return arr; // relevance — keep server order
+    
+    // Sort by createdAt natively to always surface brand-new architects to homeowners
+    return arr.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   }, [filteredArchitects, appliedFilters.sortBy]);
 
   const { data: recommendationsPayload } = useQuery({
@@ -96,9 +99,13 @@ const Explore = () => {
         verified: appliedFilters.verified || undefined,
         featured: appliedFilters.featured || undefined,
       }),
+    staleTime: 0,
   });
 
-  const recommendations = recommendationsPayload?.recommendations ?? [];
+  const sortedRecommendations = useMemo(() => {
+    const recs = recommendationsPayload?.recommendations ?? [];
+    return [...recs].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }, [recommendationsPayload?.recommendations]);
 
   const { data: savedArchitects = [] } = useQuery({
     queryKey: queryKeys.savedArchitects(),
@@ -337,7 +344,7 @@ const Explore = () => {
         {/* Architect List */}
         <Section padding="small">
           <Container>
-            {recommendations.length > 0 && (
+            {sortedRecommendations.length > 0 && (
               <div className="mb-12">
                 <Reveal>
                   <div className="flex items-center justify-between mb-6">
@@ -346,7 +353,7 @@ const Explore = () => {
                   </div>
                 </Reveal>
                 <Grid cols={3} gap="default">
-                  {recommendations.filter(a => a && a.slug).map((architect, index) => (
+                  {sortedRecommendations.filter(a => a && a.slug).map((architect, index) => (
                     <Reveal key={architect._id || index} delay={index * 0.08}>
                       <ArchitectDiscoveryCard
                         architect={architect}

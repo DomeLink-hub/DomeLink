@@ -19,7 +19,9 @@ const roleHome = (role: "homeowner" | "architect" | "admin") => {
 const routeForUser = (user: { role: string; onboardingCompleted?: boolean }) => {
   const isClient = user.role === "CLIENT" || user.role === "homeowner";
   if (isClient && user.onboardingCompleted === false) return "/homeowner/onboarding";
-  if (user.role === "ARCHITECT" || user.role === "architect") return "/architect/dashboard";
+  if (user.role === "ARCHITECT" || user.role === "architect") {
+    return user.onboardingCompleted === false ? "/architect/onboarding" : "/architect/dashboard";
+  }
   if (user.role === "ADMIN" || user.role === "admin" || user.role === "SUPERADMIN") return "/admin/dashboard";
   return roleHome("homeowner");
 };
@@ -100,6 +102,11 @@ const Login = () => {
                     className="dome-input"
                     placeholder="••••••••"
                   />
+                  <div className="text-right mt-2">
+                    <Link to="/forgot-password" className="text-body-sm text-muted-foreground link-underline">
+                      Forgot password?
+                    </Link>
+                  </div>
                 </div>
 
                 {formError && (

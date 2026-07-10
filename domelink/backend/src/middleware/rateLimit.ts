@@ -47,3 +47,12 @@ export const uploadRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Upload limit reached. Please wait before uploading more files." },
 });
+
+// Payment endpoints — 30 req / 15 min (prevents hammering order creation / verify)
+export const paymentRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many payment requests. Please wait before trying again." },
+});

@@ -63,6 +63,10 @@ const ArchitectProfile = () => {
     [architect?.designStyles, architect?.projectTypes, architect?.templates],
   );
 
+  const serviceCities = architect?.serviceCities?.length ? architect.serviceCities : architect?.citiesServed || [];
+  const expertise = architect?.expertise?.length ? architect.expertise : architect?.servicesOffered || [];
+  const workingStyles = architect?.workingStyles?.length ? architect.workingStyles : architect?.designStyles || [];
+
   const portfolioItems = portfolioProjects.length > 0 ? portfolioProjects : architect?.projects || [];
   const similarArchitects = useMemo(() => {
     if (!architect) return [];
@@ -299,6 +303,47 @@ const ArchitectProfile = () => {
           </Container>
         </Section>
 
+        <Section>
+          <Container>
+            <Reveal>
+              <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
+                <div className="dome-card p-6 md:p-8 space-y-5">
+                  <span className="dome-kicker">Studio Profile</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { label: "Firm Name", value: architect.firmName || architect.name },
+                      { label: "Experience", value: architect.experience || architect.yearsOfExperience ? `${architect.yearsOfExperience || architect.experience}` : "Not set" },
+                      { label: "Consultation Fee", value: `₹${(architect.consultationFee || architect.startingPrice || 0).toLocaleString("en-IN")}` },
+                      { label: "Cities Served", value: serviceCities.length ? serviceCities.join(", ") : "Not set" },
+                      { label: "Services Offered", value: expertise.length ? expertise.join(", ") : "Not set" },
+                      { label: "Styles", value: workingStyles.length ? workingStyles.join(", ") : "Not set" },
+                      { label: "Availability", value: [architect.onlineConsultation ? "Online" : null, architect.offlineConsultation ? "Offline" : null, architect.siteVisitAvailable ? "Site Visit" : null].filter(Boolean).join(" · ") || "Not set" },
+                      { label: "Profile Completion", value: `${architect.profileCompletionPercentage ?? 0}%` },
+                    ].map((item) => (
+                      <div key={item.label} className="dome-panel p-4">
+                        <div className="text-caption text-muted-foreground">{item.label}</div>
+                        <div className="mt-1 text-body-sm leading-relaxed">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="dome-card p-6 md:p-8 space-y-4">
+                  <span className="dome-kicker">Trust Information</span>
+                  <div className="space-y-3 text-body-sm">
+                    <div className="flex items-center justify-between gap-3"><span>COA</span><span className="text-muted-foreground">{architect.coaRegistrationNumber || "Not set"}</span></div>
+                    <div className="flex items-center justify-between gap-3"><span>GST</span><span className="text-muted-foreground">{architect.gstNumber || "Not set"}</span></div>
+                    <div className="flex items-center justify-between gap-3"><span>Profile Completion</span><span className="text-muted-foreground">{architect.profileCompletionPercentage ?? 0}%</span></div>
+                    <div className="flex items-center justify-between gap-3"><span>Verification</span><span className="text-muted-foreground">{architect.isVerified ? "Verified" : "In review"}</span></div>
+                  </div>
+                  <div className="h-2 rounded-full bg-white/8 overflow-hidden mt-4">
+                    <div className="h-full bg-gradient-to-r from-amber-400 to-primary" style={{ width: `${architect.profileCompletionPercentage ?? 0}%` }} />
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </Container>
+        </Section>
+
         {/* About */}
         <Section>
           <Container size="narrow">
@@ -316,6 +361,13 @@ const ArchitectProfile = () => {
                     <div className="dome-flow-item">
                       <span className="dome-node" />
                       <div>
+                        <span className="text-caption text-muted-foreground block mb-2">Firm Name</span>
+                        <span className="text-body-lg">{architect.firmName || architect.name}</span>
+                      </div>
+                    </div>
+                    <div className="dome-flow-item">
+                      <span className="dome-node" />
+                      <div>
                         <span className="text-caption text-muted-foreground block mb-2">Rating</span>
                         <span className="text-display-md">{architect.rating || "New"}</span>
                       </div>
@@ -324,14 +376,14 @@ const ArchitectProfile = () => {
                       <span className="dome-node" />
                       <div>
                         <span className="text-caption text-muted-foreground block mb-2">Starting Price</span>
-                        <span className="text-display-md">${(architect.startingPrice || 0).toLocaleString()}</span>
+                        <span className="text-display-md">₹{(architect.startingPrice || 0).toLocaleString()}</span>
                       </div>
                     </div>
                     <div className="dome-flow-item">
                       <span className="dome-node" />
                       <div>
                         <span className="text-caption text-muted-foreground block mb-2">Experience</span>
-                        <span className="text-body-lg">{architect.experience || "N/A"}</span>
+                        <span className="text-body-lg">{architect.experience || (architect.yearsOfExperience ? `${architect.yearsOfExperience} years` : "N/A")}</span>
                       </div>
                     </div>
                     <div className="dome-flow-item">
@@ -358,6 +410,13 @@ const ArchitectProfile = () => {
                     <div className="dome-flow-item">
                       <span className="dome-node" />
                       <div>
+                        <span className="text-caption text-muted-foreground block mb-2">Cities Served</span>
+                        <span className="text-body-lg">{serviceCities.length ? serviceCities.join(", ") : "N/A"}</span>
+                      </div>
+                    </div>
+                    <div className="dome-flow-item">
+                      <span className="dome-node" />
+                      <div>
                         <span className="text-caption text-muted-foreground block mb-2">Completed Projects</span>
                         <span className="text-body-lg">{architect.completedProjects || portfolioItems.length || 0}</span>
                       </div>
@@ -367,6 +426,13 @@ const ArchitectProfile = () => {
                       <div>
                         <span className="text-caption text-muted-foreground block mb-2">Trust Score</span>
                         <span className="text-body-lg">{Math.round((architect.trustScore || 0) * 100)}%</span>
+                      </div>
+                    </div>
+                    <div className="dome-flow-item">
+                      <span className="dome-node" />
+                      <div>
+                        <span className="text-caption text-muted-foreground block mb-2">Profile Completion</span>
+                        <span className="text-body-lg">{architect.profileCompletionPercentage ?? 0}%</span>
                       </div>
                     </div>
                   </div>
@@ -490,6 +556,46 @@ const ArchitectProfile = () => {
                   />
                 </div>
               ) : null}
+            </Container>
+          </Section>
+        )}
+
+        {/* Awards & Certifications — only shown when at least one exists */}
+        {((architect.awards?.length ?? 0) > 0 || (architect.certifications?.length ?? 0) > 0) && (
+          <Section>
+            <Container>
+              <Reveal>
+                <div className="space-y-4 mb-8">
+                  <span className="dome-kicker">Credentials</span>
+                  <h2 className="text-display-lg dome-bracket">Awards & Certifications</h2>
+                </div>
+              </Reveal>
+              <Grid cols={2} gap="default">
+                {(architect.awards?.length ?? 0) > 0 && (
+                  <Reveal>
+                    <div className="dome-card p-6">
+                      <div className="text-caption text-muted-foreground mb-3">Awards</div>
+                      <div className="flex flex-wrap gap-2">
+                        {architect.awards!.map((award) => (
+                          <span key={award} className="dome-chip">{award}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </Reveal>
+                )}
+                {(architect.certifications?.length ?? 0) > 0 && (
+                  <Reveal delay={0.1}>
+                    <div className="dome-card p-6">
+                      <div className="text-caption text-muted-foreground mb-3">Certifications</div>
+                      <div className="flex flex-wrap gap-2">
+                        {architect.certifications!.map((cert) => (
+                          <span key={cert} className="dome-chip">{cert}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </Reveal>
+                )}
+              </Grid>
             </Container>
           </Section>
         )}
@@ -675,23 +781,10 @@ const ArchitectProfile = () => {
         architectId={architect._id}
         onComplete={(consultationId) => {
           setActiveConsultationId(consultationId);
-          setIsPaymentOpen(true);
+          setIsChatModalOpen(true);
           track("consultation_start", { architectId: architect._id });
         }}
       />
-      {activeConsultationId && (
-        <ConsultationPaymentModal
-          isOpen={isPaymentOpen}
-          onClose={() => setIsPaymentOpen(false)}
-          architectId={architect._id}
-          architectName={architect.name}
-          consultationId={activeConsultationId}
-          onPaymentSuccess={() => {
-            void queryClient.invalidateQueries({ queryKey: ["payments"] });
-            setIsChatModalOpen(true);
-          }}
-        />
-      )}
     </PageTransition>
   );
 };

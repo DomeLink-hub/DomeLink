@@ -19,6 +19,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import ArchitectChatModal from "@/components/chat/ArchitectChatModal";
 import { BrainCircuit } from "lucide-react";
 import AvoraProjectCopilot from "@/components/intelligence/AvoraProjectCopilot";
+import EmailVerificationBanner from "@/components/common/EmailVerificationBanner";
 
 const normalizeTags = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -284,6 +285,12 @@ const ArchitectDashboard = () => {
     queryFn: api.getMyArchitectStats,
   });
 
+  // AI Studio Insight — real aggregation from consultations/leads
+  const { data: insights, isLoading: insightsLoading } = useQuery({
+    queryKey: queryKeys.architectInsights(),
+    queryFn: api.getArchitectInsights,
+  });
+
   const { data: consultations = [] } = useQuery<Consultation[]>({
     queryKey: queryKeys.consultations(),
     queryFn: api.getConsultations,
@@ -308,7 +315,7 @@ const ArchitectDashboard = () => {
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
 
   const architectStyleTags = useMemo(() => {
-    const user = profile?.user as Record<string, unknown> | undefined;
+    const user = profile?.user as unknown as Record<string, unknown> | undefined;
     return normalizeTags(user?.designStyles || user?.preferredStyles);
   }, [profile?.user]);
 
@@ -387,7 +394,9 @@ const ArchitectDashboard = () => {
   });
 
   const createProjectMutation = useMutation({
-    mutationFn: (consultationId: string) => api.createProject({ consultationId, title: "New Project Workflow", progress: 0, status: "planning" }),
+    // progress and status are NOT sent — the Project model has no progress field,
+    // and status always starts at "planning" server-side by design.
+    mutationFn: (consultationId: string) => api.createProject({ consultationId, title: "New Project Workflow" }),
     onSuccess: (data) => {
       toast.success("Project workspace created!");
       queryClient.invalidateQueries({ queryKey: queryKeys.consultations() });
@@ -446,16 +455,21 @@ const ArchitectDashboard = () => {
         {/* Studio Command */}
         <Section padding="small">
           <Container>
+            {/* Email verification nudge — informational only, does not gate anything */}
+            <EmailVerificationBanner user={profile?.user as any} />
+
             {/* Profile Strength */}
             {(() => {
               const p = profile?.user;
               const arch = profile as any;
-              let strength = 0;
-              if (arch?.completedProjects > 0) strength += 25;
-              if (arch?.rating >= 4) strength += 20;
-              if (arch?.isVerified) strength += 25;
-              if (arch?.about) strength += 15;
-              if (arch?.heroImage) strength += 15;
+              const completion = Math.max(0, Math.min(100, Number(p?.profileCompletionPercentage ?? arch?.profileCompletionPercentage ?? 0)));
+              const strength = completion || [
+                arch?.completedProjects > 0,
+                arch?.rating >= 4,
+                arch?.isVerified,
+                arch?.about,
+                arch?.heroImage,
+              ].reduce((total, flag) => total + (flag ? 20 : 0), 0);
               return (
                 <div className="dome-card p-6 mb-6">
                   <div className="flex items-center justify-between mb-3">
@@ -471,7 +485,7 @@ const ArchitectDashboard = () => {
                     />
                   </div>
                   <p className="text-body-sm text-muted-foreground mt-2">
-                    {strength < 60 ? "Add portfolio projects, a bio, and get verified to improve your ranking." : strength < 80 ? "Looking good — a few more projects will push you to the top." : "Your profile is highly optimised for discovery."}
+                    {strength < 60 ? "Complete onboarding fields, add portfolio assets, and verify trust details." : strength < 80 ? "Your studio is looking strong. A few more assets will improve discovery." : "Your profile is highly optimised for discovery."}
                   </p>
                 </div>
               );
@@ -543,19 +557,37 @@ const ArchitectDashboard = () => {
         {/* --- NEW FEATURE BLOCKS --- */}
         <Section padding="small">
           <Container>
+            {/* AI Studio Insight — derived from real consultation/lead data */}
             <div className="dome-card p-6 mb-8">
               <div className="flex items-center justify-between">
                 <span className="dome-chip">AI Studio Insight</span>
                 <span className="text-caption text-muted-foreground">Auto-synthesized</span>
               </div>
-              <p className="text-body-sm text-muted-foreground mt-4">
-                Based on recent inquiries, clients are leaning toward modern timber palettes and faster concept delivery.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-4">
-                <span className="dome-chip">Timber + stone</span>
-                <span className="dome-chip">Concept sprint</span>
-                <span className="dome-chip">High intent</span>
-              </div>
+              {insightsLoading ? (
+                <div className="mt-4 space-y-2">
+                  <div className="h-3 w-3/4 rounded-full bg-border/60 animate-pulse" />
+                  <div className="flex gap-2 mt-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-6 w-20 rounded-full bg-border/40 animate-pulse" />
+                    ))}
+                  </div>
+                </div>
+              ) : !insights || !insights.hasEnoughData ? (
+                <p className="text-body-sm text-muted-foreground mt-4">
+                  {insights ? (insights as any).reason : "Insights will appear once you have a few consultations."}
+                </p>
+              ) : (
+                <>
+                  <p className="text-body-sm text-muted-foreground mt-4">
+                    {insights.summary}
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {insights.tags.map((tag) => (
+                      <span key={tag} className="dome-chip">{tag}</span>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-8">
               <div className="dome-card p-6">
@@ -573,7 +605,7 @@ const ArchitectDashboard = () => {
                   </div>
                   <div className="dome-panel p-4">
                     <p className="text-caption text-muted-foreground">Monthly earnings</p>
-                    <p className="text-display-sm mt-2">${(stats?.monthlyEarnings ?? 0).toLocaleString()}</p>
+                    <p className="text-display-sm mt-2">₹{(stats?.monthlyEarnings ?? 0).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -602,46 +634,11 @@ const ArchitectDashboard = () => {
                   </div>
                   <div className="dome-panel p-4">
                     <p className="text-caption text-muted-foreground">Total earnings</p>
-                    <p className="text-display-sm mt-2">${(stats?.totalEarnings ?? 0).toLocaleString()}</p>
+                    <p className="text-display-sm mt-2">₹{(stats?.totalEarnings ?? 0).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
             </div>
-          </Container>
-        </Section>
-
-        {/* Notifications */}
-        <Section padding="small">
-          <Container>
-            {/* Removed: separate Notifications section — consolidated into Activity Feed above */}
-          </Container>
-        </Section>
-
-        {/* Payments */}
-        <Section padding="small">
-          <Container>
-            {/* Removed: separate Payments section — consolidated into Activity Feed above */}
-          </Container>
-        </Section>
-
-        {/* Reviews */}
-        <Section padding="small">
-          <Container>
-            {/* Removed: separate Reviews section — consolidated into Activity Feed above */}
-          </Container>
-        </Section>
-
-        {/* Support Tickets */}
-        <Section padding="small">
-          <Container>
-            {/* Removed: separate Support section — consolidated into Activity Feed above */}
-          </Container>
-        </Section>
-
-        {/* Analytics */}
-        <Section padding="small">
-          <Container>
-            {/* Removed: separate Analytics section — consolidated into Activity Feed above */}
           </Container>
         </Section>
 
@@ -672,7 +669,7 @@ const ArchitectDashboard = () => {
               <Reveal delay={0.3}>
                 <div className="dome-card p-6">
                   <span className="text-caption text-muted-foreground block mb-2">Earnings (Month)</span>
-                  <span className="text-display-md">${(stats?.monthlyEarnings ?? 0).toLocaleString()}</span>
+                  <span className="text-display-md">₹{(stats?.monthlyEarnings ?? 0).toLocaleString()}</span>
                 </div>
               </Reveal>
             </Grid>
@@ -987,7 +984,7 @@ const ArchitectDashboard = () => {
               <Reveal>
                 <div className="dome-card p-8 text-center">
                   <span className="text-caption text-muted-foreground block mb-2">This Month</span>
-                  <span className="text-display-lg">${(stats?.monthlyEarnings ?? 0).toLocaleString()}</span>
+                  <span className="text-display-lg">₹{(stats?.monthlyEarnings ?? 0).toLocaleString()}</span>
                 </div>
               </Reveal>
               <Reveal delay={0.1}>
@@ -999,7 +996,7 @@ const ArchitectDashboard = () => {
               <Reveal delay={0.2}>
                 <div className="dome-card p-8 text-center">
                   <span className="text-caption text-muted-foreground block mb-2">Total Earnings</span>
-                  <span className="text-display-lg">${(stats?.totalEarnings ?? profile?.earnings ?? 0).toLocaleString()}</span>
+                  <span className="text-display-lg">₹{(stats?.totalEarnings ?? profile?.earnings ?? 0).toLocaleString()}</span>
                 </div>
               </Reveal>
             </Grid>
@@ -1032,7 +1029,7 @@ const ArchitectDashboard = () => {
                 </Link>
               </Reveal>
               <Reveal delay={0.2}>
-                <Link to="/architect/elena-vasquez">
+                <Link to={profile?.user?.slug ? `/architect/${profile.user.slug}` : `/architect/${profile?.user?.id ?? ""}`}>
                   <motion.div
                     className="dome-card p-8 hover:border-foreground transition-colors duration-300 text-center"
                     whileHover={{ y: -4 }}

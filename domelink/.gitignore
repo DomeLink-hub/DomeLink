@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Builds / bundles
+dist
+**/dist
+build
+**/build
+frontend/dist
+backend/dist
+frontend/build
+backend/build
+
+# Logs
+logs
+*.log
+
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Local certs / keys
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+*.jks
+certs/
+**/certs/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

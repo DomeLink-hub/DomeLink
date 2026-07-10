@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { api, type ApiUser } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { socket } from "@/lib/socket";
+import { clearOnboardingDrafts } from "@/lib/onboardingDraft";
 
 interface AuthContextValue {
   user: ApiUser | null;
@@ -49,17 +50,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = useCallback(async () => {
+    const previousUserId = user?._id ?? user?.id;
     try {
       await api.logout();
     } catch (error) {
       console.error("Backend logout failed, clearing local state anyway.", error);
     }
+    clearOnboardingDrafts(previousUserId);
     api.clearToken();
     setUser(null);
     queryClient.clear();
     // Redirect to homepage — window.location ensures stale React state is fully cleared
     window.location.replace("/");
-  }, [queryClient]);
+  }, [queryClient, user?._id, user?.id]);
 
   const login = useCallback(
     async (role: "homeowner" | "architect", email: string, password: string) => {

@@ -115,21 +115,22 @@ const ConsultationPaymentModal = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-[60]"
+            className="absolute inset-0 bg-black/60 pointer-events-auto"
             onClick={onClose}
           />
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl md:max-h-[90vh] overflow-y-auto bg-background z-[61] p-6 md:p-8 rounded-lg border border-border shadow-xl"
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.98 }}
+            className="w-full md:max-w-2xl max-h-[85vh] flex flex-col bg-background rounded-lg border border-border shadow-xl overflow-hidden relative z-10 pointer-events-auto"
           >
-            <div className="flex items-start justify-between gap-4 mb-6">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 p-6 md:p-8 pb-4 shrink-0 bg-background z-10 border-b border-border/10">
               <div>
                 <span className="dome-kicker">Consultation package</span>
                 <h3 className="text-display-sm mt-1">Choose your plan</h3>
@@ -142,7 +143,8 @@ const ConsultationPaymentModal = ({
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+            {/* Scrollable Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 md:p-8 space-y-3">
               {PRICING_PLANS.map((plan) => (
                 <PlanOption
                   key={plan.id}
@@ -153,7 +155,8 @@ const ConsultationPaymentModal = ({
               ))}
             </div>
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
+            {/* Sticky Footer */}
+            <div className="shrink-0 p-6 md:p-8 pt-4 border-t border-border/40 bg-background flex flex-col sm:flex-row gap-3 sm:justify-end">
               <button type="button" className="dome-button-outline" onClick={onClose} disabled={paying}>
                 Cancel
               </button>
@@ -167,7 +170,7 @@ const ConsultationPaymentModal = ({
               </button>
             </div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );

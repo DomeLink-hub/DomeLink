@@ -12,8 +12,7 @@ import PageTransition from "@/components/layout/PageTransition";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/useAuthContext";
 import { queryKeys } from "@/lib/queryKeys";
-
-const storageKey = "domelink_homeowner_onboarding_draft";
+import { getOnboardingDraftKey } from "@/lib/onboardingDraft";
 
 const allowedCities = [
   "Bangalore", "Mumbai", "Pune", "Hyderabad", "Chennai",
@@ -169,7 +168,9 @@ const InputField = ({
 export default function HomeownerOnboarding() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { refresh } = useAuth();
+  const { refresh, user } = useAuth();
+  const userId = user?.id ?? user?._id ?? null;
+  const draftKey = useMemo(() => (userId ? getOnboardingDraftKey("homeowner", userId) : null), [userId]);
   const [stepIndex, setStepIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [complete, setComplete] = useState(false);
@@ -180,7 +181,8 @@ export default function HomeownerOnboarding() {
 
   /* restore draft */
   useEffect(() => {
-    const draft = window.localStorage.getItem(storageKey);
+    if (!draftKey) return;
+    const draft = window.localStorage.getItem(draftKey);
     if (!draft) return;
     try {
       const parsed = JSON.parse(draft) as { stepIndex?: number; form?: Partial<OnboardingForm> };
@@ -191,21 +193,23 @@ export default function HomeownerOnboarding() {
           ...c, ...parsed.form,
           preferredStyles: Array.isArray(parsed.form!.preferredStyles) ? parsed.form!.preferredStyles : c.preferredStyles,
         }));
-    } catch { window.localStorage.removeItem(storageKey); }
-  }, []);
+    } catch { window.localStorage.removeItem(draftKey); }
+  }, [draftKey]);
 
   /* persist draft */
   useEffect(() => {
-    if (complete) { window.localStorage.removeItem(storageKey); return; }
-    window.localStorage.setItem(storageKey, JSON.stringify({ stepIndex, form }));
-  }, [complete, form, stepIndex]);
+    if (!draftKey) return;
+    if (complete) { window.localStorage.removeItem(draftKey); return; }
+    window.localStorage.setItem(draftKey, JSON.stringify({ stepIndex, form }));
+  }, [complete, draftKey, form, stepIndex]);
 
   /* redirect after complete */
   useEffect(() => {
     if (!complete) return;
+    if (draftKey) window.localStorage.removeItem(draftKey);
     const t = window.setTimeout(() => navigate("/homeowner/dashboard", { replace: true }), 1600);
     return () => window.clearTimeout(t);
-  }, [complete, navigate]);
+  }, [complete, draftKey, navigate, userId]);
 
   const canContinue = useMemo(() => {
     if (activeStep.id === "welcome") return true;

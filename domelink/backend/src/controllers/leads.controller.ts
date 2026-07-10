@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import prisma from "../config/prisma.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { AppError } from "../utils/AppError.js";
-import { NotificationModel } from "../models/Notification.js";
+import { createAndEmitNotification } from "../services/notification.service.js";
 
 type LeadRecord = {
   id: string;
@@ -110,10 +110,10 @@ export const getClientLeads = asyncHandler(async (req: Request, res: Response) =
 
   const avoraEstimates = homeownerIds.length
     ? await prisma.avoraEstimate.findMany({
-        where: { homeownerId: { in: homeownerIds } },
-        select: { homeownerId: true, report: true, createdAt: true },
-        orderBy: { createdAt: "desc" },
-      })
+      where: { homeownerId: { in: homeownerIds } },
+      select: { homeownerId: true, report: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    })
     : [];
 
   const latestAvoraByUser = new Map<string, number | null>();
@@ -149,7 +149,7 @@ export const expressInterestInLead = asyncHandler(async (req: Request, res: Resp
   const [architect, homeowner] = await Promise.all([
     prisma.user.findUnique({
       where: { id: architectId },
-      select: { id: true, role: true, city: true, location: true },
+      select: { id: true, role: true, city: true, location: true, slug: true, name: true },
     }),
     prisma.user.findUnique({
       where: { id: homeownerId },
@@ -169,12 +169,18 @@ export const expressInterestInLead = asyncHandler(async (req: Request, res: Resp
     (architect.location ? architect.location.split(",")[0]?.trim() : "your city") ||
     "your city";
 
-  await NotificationModel.create({
-    user: homeowner.id,
+  // Non-fatal: notification failure must not fail the lead-interest action.
+  // createAndEmitNotification already handles errors internally (log and continue).
+  await createAndEmitNotification({
+    userId: homeowner.id,
     type: "lead_interest",
     title: "New Architect Interest",
-    body: `An architect in ${architectCity} is interested in your project`,
-    read: false,
+    message: `An architect in ${architectCity} is interested in your project`,
+    metadata: {
+      architectId: architect.id,
+      architectSlug: architect.slug ?? architect.id,
+      architectName: architect.name ?? "Architect",
+    },
   });
 
   return res.status(201).json({ ok: true });

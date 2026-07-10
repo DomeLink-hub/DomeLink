@@ -73,13 +73,20 @@ app.use(helmetFn({
 app.use(cookieParser());
 
 /* ── Raw body capture (webhook signature verification) ──────── */
-app.use((req, _res, next) => {
-  const chunks: Buffer[] = [];
-  req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-  req.on("end", () => {
-    try { req.rawBody = Buffer.concat(chunks); } catch { req.rawBody = undefined; }
-  });
-  next();
+// Capture the raw request body only for webhook endpoints (signature verification).
+// Do not consume the stream for general JSON endpoints, otherwise body-parser fails.
+app.use((req, res, next) => {
+  const webhookPaths = ["/api/payments/webhook", "/api/payments/razorpay-webhook"];
+  if (webhookPaths.some((p) => req.path.startsWith(p))) {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    req.on("end", () => {
+      try { req.rawBody = Buffer.concat(chunks); } catch { req.rawBody = undefined; }
+      next();
+    });
+  } else {
+    next();
+  }
 });
 
 app.use(express.json({ limit: "2mb" }));
@@ -88,10 +95,21 @@ app.use(express.json({ limit: "2mb" }));
 if (env.MONGO_URI) {
   mongoose
     .connect(env.MONGO_URI, { dbName: "domelink" })
-    .then(() => logger.info("Connected to MongoDB legacy models"))
-    .catch((err) => logger.warn("MongoDB connection failed", { error: err.message }));
+    .then(() => logger.info("MongoDB connected"))
+    .catch((err) => {
+      // Non-fatal: Postgres-backed features continue working even if Mongo is down
+      logger.warn("MongoDB connection failed — Mongo-backed features (blog, support, project-brief, team, styleQuiz, analytics events) will be unavailable", { error: err.message });
+    });
+
+  // Log post-connect errors without crashing the process
+  mongoose.connection.on("error", (err) => {
+    logger.warn("MongoDB runtime error", { error: err.message });
+  });
+  mongoose.connection.on("disconnected", () => {
+    logger.warn("MongoDB disconnected");
+  });
 } else {
-  logger.warn("MONGO_URI not configured — legacy models inactive");
+  logger.warn("MONGO_URI not configured — Mongo-backed features inactive");
 }
 
 /* ── Health endpoints ────────────────────────────────────────── */
@@ -118,6 +136,7 @@ app.get("/api/health/liveness", (_req, res) => {
   res.json({ alive: true, ts: new Date().toISOString(), uptime: process.uptime() });
 });
 
+
 /* ── Rate limiting ───────────────────────────────────────────── */
 app.use(apiRateLimiter);
 
@@ -127,7 +146,7 @@ import { startWebhookRetryWorker } from "./services/payments/webhookRetry.servic
 app.use("/api", routes);
 
 /* ── Sentry Error Handler ────────────────────────────────────── */
-Sentry.setupExpressErrorHandler(app);
+app.use(Sentry.expressErrorHandler() as any);
 
 /* ── Global error handler ────────────────────────────────────── */
 app.use(errorHandler);

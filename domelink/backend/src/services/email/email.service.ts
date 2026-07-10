@@ -51,4 +51,24 @@ export const emailEvents = {
       title: `You are now on ${tier}`,
       summary: 'Your profile visibility, analytics, and premium features have been upgraded.',
     }),
+  verifyEmail: (to: string, rawToken: string) => {
+    const url = `${env.FRONTEND_URL || 'http://localhost:8080'}/verify-email?token=${rawToken}`;
+    return sendTransactionalEmail(to, {
+      subject: 'Verify your DomeLink email address',
+      title: 'Confirm your email',
+      summary: 'Click the button below to verify your email address. This link expires in 24 hours.',
+      ctaText: 'Verify Email',
+      ctaUrl: url,
+    });
+  },
+  resetPassword: (to: string, rawToken: string) => {
+    const url = `${env.FRONTEND_URL || 'http://localhost:8080'}/reset-password?token=${rawToken}`;
+    return sendTransactionalEmail(to, {
+      subject: 'Reset your DomeLink password',
+      title: 'Reset your password',
+      summary: 'Someone requested a password reset for your account. Click below to set a new password. This link expires in 1 hour. If you did not request this, you can safely ignore this email.',
+      ctaText: 'Reset Password',
+      ctaUrl: url,
+    });
+  },
 };

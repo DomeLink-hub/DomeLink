@@ -63,6 +63,11 @@ model User {
   avatar   String?
 
   // --- Architect Specific Fields ---
+  firmName          String?
+  coaRegistrationNumber String?
+  gstNumber         String?
+  yearsOfExperience Int?
+  state             String?
   location          String?
   specialty         String?
   startingPrice     Int?
@@ -70,19 +75,39 @@ model User {
   teamSize          Int?
   heroImage         String?
   profileImage      String?
+  profilePhoto      String?
   about             String?
   slug              String? @unique
   isVerified        Boolean @default(false)
   isFeatured        Boolean @default(false)
   consultationFee   Int?
+  startingProjectBudget Int?
+  maximumProjectBudget Int?
   rating            Float   @default(0)
   completedProjects Int     @default(0)
   reviewCount       Int     @default(0)
   trustScore        Float   @default(0)
+  onlineConsultation Boolean @default(false)
+  offlineConsultation Boolean @default(false)
+  siteVisitAvailable Boolean @default(false)
+  expertise         Json?
   designStyles      Json?
+  workingStyles     Json?
   projectTypes      Json?
   citiesServed      Json?
+  serviceCities     Json?
   servicesOffered   Json?
+  portfolioImages   Json?
+  awards            Json?
+  certifications    Json?
+  profileCompletionPercentage Int @default(0)
+
+  // --- Auth Verification Fields ---
+  emailVerified            Boolean   @default(false)
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
+  passwordResetToken       String?
+  passwordResetExpires     DateTime?
 
   // --- Homeowner Onboarding Fields ---
   city                String?
@@ -118,6 +143,13 @@ model User {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   WebhookReplay WebhookReplay[]
+
+  // --- New Postgres-native relations (migrated from MongoDB) ---
+  notifications             Notification[]
+  reviewsGiven              Review[]         @relation("ReviewerUser")
+  reviewsReceived           Review[]         @relation("RevieweeUser")
+  savedArchitectsAsUser     SavedArchitect[] @relation("SavedByUser")
+  savedArchitectsAsArchitect SavedArchitect[] @relation("SavedArchitectUser")
 }
 
 model PortfolioProject {
@@ -448,4 +480,51 @@ model AnalyticsEvent {
   eventName String
   metadata  Json?
   createdAt DateTime @default(now())
+}
+
+// ── Migrated from MongoDB ──────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   @default("system")
+  title     String   @default("")
+  body      String   @default("")
+  read      Boolean  @default(false)
+  metadata  Json?    // optional structured data, e.g. { architectId, architectSlug } for lead_interest
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id         String  @id @default(uuid())
+  reviewerId String
+  revieweeId String
+  projectId  String?
+  rating     Int
+  comment    String  @default("")
+
+  reviewer User @relation("ReviewerUser", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User @relation("RevieweeUser", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SavedArchitect {
+  id             String  @id @default(uuid())
+  userId         String
+  architectId    String
+  collectionName String? @default("")
+
+  user      User @relation("SavedByUser",       fields: [userId],      references: [id], onDelete: Cascade)
+  architect User @relation("SavedArchitectUser", fields: [architectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, architectId])
 }

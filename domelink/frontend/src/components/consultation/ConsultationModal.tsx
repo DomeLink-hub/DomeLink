@@ -33,7 +33,7 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const consultation = await api.createConsultation({
+      const payload: any = {
         architectId,
         message: form.message || "Requesting a consultation",
         preferredDate: form.preferredDate || undefined,
@@ -42,8 +42,13 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
         plotSize: form.plotSize || undefined,
         preferredStyle: form.preferredStyle || undefined,
         location: form.location || undefined,
-        uploadedReferences: form.uploadedReferences.length > 0 ? form.uploadedReferences : undefined,
-      });
+      };
+
+      if (form.uploadedReferences.length > 0) {
+        payload.uploadedReferences = form.uploadedReferences;
+      }
+
+      const consultation = await api.createConsultation(payload);
       toast.success("Consultation booked.");
       onComplete(consultation._id);
       onClose();
@@ -57,12 +62,12 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50"
+            className="absolute inset-0 bg-black/60 pointer-events-auto"
             onClick={onClose}
           />
           <motion.div
@@ -70,8 +75,9 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.98 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-xl bg-background z-50 p-6 md:p-10"
+            className="w-full md:max-w-xl max-h-[90vh] flex flex-col overflow-hidden bg-background rounded-3xl p-6 md:p-10 relative z-10 pointer-events-auto"
           >
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-display-sm">Book a consultation</h3>
               <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -100,7 +106,7 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
                   className="dome-input"
                   value={form.budget}
                   onChange={(event) => setForm({ ...form, budget: event.target.value })}
-                  placeholder="$75,000"
+                  placeholder="₹75,000"
                 />
                 <label className="text-caption text-muted-foreground">Preferred date</label>
                 <input
@@ -185,8 +191,9 @@ const ConsultationModal = ({ isOpen, onClose, onComplete, architectId }: Consult
                 </button>
               )}
             </div>
+            </div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );

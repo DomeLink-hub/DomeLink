@@ -72,10 +72,10 @@ const Contact = () => {
                         Email
                       </span>
                       <a 
-                        href="mailto:hello@domelink.com" 
+                        href="mailto:support@domelink.in" 
                         className="text-body link-underline"
                       >
-                        hello@domelink.com
+                        support@domelink.in
                       </a>
                     </div>
                     <div>

@@ -209,7 +209,8 @@ export const createBookingOrder = asyncHandler(async (req: Request, res: Respons
   }
 
   const amountPaise = plan.priceInr * 100;
-  const order = await createRazorpayOrder(amountPaise, "INR", `booking_${userId}_${Date.now()}`);
+  const shortId = userId.slice(0, 8);
+  const order = await createRazorpayOrder(amountPaise, "INR", `bk_${shortId}_${Date.now()}`);
 
   if (!order || typeof order !== "object" || "skipped" in order) {
     throw new AppError("Razorpay is not configured", 503);
@@ -271,7 +272,7 @@ export const createConsultationPayment = asyncHandler(async (req: Request, res: 
   const userId = req.user?.id;
   if (!userId) throw new AppError("Unauthorized", 401);
 
-  const order = await createRazorpayOrder(Math.round(payload.amount * 100), payload.currency, `consultation_${Date.now()}`);
+  const order = await createRazorpayOrder(Math.round(payload.amount * 100), payload.currency, `con_${Date.now()}`);
 
   const payment = await prisma.payment.create({
     data: {
@@ -297,7 +298,8 @@ export const createSubscriptionPayment = asyncHandler(async (req: Request, res: 
   if (!userId) throw new AppError("Unauthorized", 401);
 
   const plan = SUBSCRIPTION_PLANS[payload.tier];
-  const order = await createRazorpayOrder(plan.price * 100, "INR", `subscription_${userId}_${payload.tier}`);
+  const shortId = userId.slice(0, 8);
+  const order = await createRazorpayOrder(plan.price * 100, "INR", `sub_${shortId}_${payload.tier}`);
 
   const payment = await prisma.payment.create({
     data: {
@@ -327,7 +329,9 @@ export const createFeaturedPlacementPayment = asyncHandler(async (req: Request, 
   if (!userId) throw new AppError("Unauthorized", 401);
 
   const amount = payload.placementType === "featured_badge" ? 2999 : payload.placementType === "explore" ? 4999 : 7999;
-  const order = await createRazorpayOrder(amount * 100, "INR", `featured_${userId}_${payload.placementType}`);
+  const shortId = userId.slice(0, 8);
+  const typeShort = payload.placementType.slice(0, 6);
+  const order = await createRazorpayOrder(amount * 100, "INR", `ft_${shortId}_${typeShort}`);
 
   const payment = await prisma.payment.create({
     data: {

@@ -21,7 +21,9 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
       architectId: consultation.architectId,
       homeownerId: consultation.userId,
       title,
-      description,
+      // description is optional from the client; default to empty string to satisfy
+      // the non-nullable Prisma field — avoids a DB error when not provided.
+      description: description ?? "",
       estimatedBudget: estimatedBudget ? parseInt(estimatedBudget, 10) : null,
       estimatedTime,
       status: "planning"

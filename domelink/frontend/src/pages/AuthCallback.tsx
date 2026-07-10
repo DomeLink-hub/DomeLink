@@ -19,9 +19,12 @@ const AuthCallback = () => {
       try {
         const profile = await api.me();
         const isClient = profile.user.role === "CLIENT" || profile.user.role === "homeowner";
+        const isArchitect = profile.user.role === "ARCHITECT" || profile.user.role === "architect";
         const target = isClient && profile.user.onboardingCompleted === false
           ? "/homeowner/onboarding"
-          : from || (profile.user.role === "ARCHITECT" || profile.user.role === "architect" ? "/architect/portal" : "/homeowner/dashboard");
+          : isArchitect && profile.user.onboardingCompleted === false
+            ? "/architect/onboarding"
+            : from || (isArchitect ? "/architect/portal" : "/homeowner/dashboard");
         navigate(target, {
           replace: true,
         });

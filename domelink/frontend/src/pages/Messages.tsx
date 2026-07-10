@@ -10,6 +10,7 @@ import { api, type ChatConversationItem, type ChatMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import ConsultationPaymentModal from "@/components/payments/ConsultationPaymentModal";
 
 const getSenderId = (message: ChatMessage) => {
   return message.sender?.id || message.senderId?._id || "";
@@ -48,18 +49,25 @@ const Messages = () => {
     if (selectedConsultationId) return;
     if (conversations.length === 0) return;
     const fallbackId = getConversationId(conversations[0]);
+    if (!fallbackId) return;
     setSelectedConsultationId(fallbackId);
-    setSearchParams({ consultation: fallbackId });
-  }, [conversations, selectedConsultationId, setSearchParams]);
+    setSearchParams((prev) => {
+      if (prev.get("consultation") === fallbackId) return prev;
+      const next = new URLSearchParams(prev);
+      next.set("consultation", fallbackId);
+      return next;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations.length, selectedConsultationId]);
 
-  const { data: persistedMessages = [], isLoading: messagesLoading } = useQuery<ChatMessage[]>({
+  const { data: persistedMessages, isLoading: messagesLoading } = useQuery<ChatMessage[]>({
     queryKey: queryKeys.chat(selectedConsultationId || ""),
     queryFn: () => api.getChat(selectedConsultationId),
     enabled: Boolean(selectedConsultationId),
   });
 
   useEffect(() => {
-    setLiveMessages(persistedMessages);
+    setLiveMessages(persistedMessages || []);
   }, [persistedMessages]);
 
   const markReadMutation = useMutation({
@@ -72,6 +80,7 @@ const Messages = () => {
   useEffect(() => {
     if (!selectedConsultationId) return;
     markReadMutation.mutate(selectedConsultationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConsultationId]);
 
   useEffect(() => {
@@ -150,6 +159,14 @@ const Messages = () => {
   }, [conversations]);
 
   const isArchitect = String(user?.role || "").toUpperCase() === "ARCHITECT";
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+
+  // Show "Proceed to Engagement" for homeowners on PENDING or ACCEPTED consultations
+  const paymentEligibleStatuses = ["PENDING", "ACCEPTED", "pending", "accepted"];
+  const showPaymentButton =
+    !isArchitect &&
+    selectedConversation &&
+    paymentEligibleStatuses.includes(String(selectedConversation.status));
 
   const handleSelectConversation = (consultationId: string) => {
     setSelectedConsultationId(consultationId);
@@ -230,16 +247,29 @@ const Messages = () => {
                   <div className="p-4 border-b border-border/60">
                     {selectedConversation ? (
                       <>
-                        <h2 className="text-body font-medium">
-                          {isArchitect
-                            ? `${selectedConversation.user.city || "Unknown city"} • ${selectedConversation.user.projectType || "Project"}`
-                            : selectedConversation.architect.name}
-                        </h2>
-                        <p className="text-body-sm text-muted-foreground">
-                          {isArchitect
-                            ? `${selectedConversation.user.name} • ${selectedConversation.user.role}`
-                            : `${selectedConversation.architect.name} • ${selectedConversation.architect.role}`}
-                        </p>
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <h2 className="text-body font-medium">
+                              {isArchitect
+                                ? `${selectedConversation.user.city || "Unknown city"} • ${selectedConversation.user.projectType || "Project"}`
+                                : selectedConversation.architect.name}
+                            </h2>
+                            <p className="text-body-sm text-muted-foreground">
+                              {isArchitect
+                                ? `${selectedConversation.user.name} • ${selectedConversation.user.role}`
+                                : `${selectedConversation.architect.name} • ${selectedConversation.architect.role}`}
+                            </p>
+                          </div>
+                          {showPaymentButton && (
+                            <button
+                              type="button"
+                              className="dome-button text-xs px-4 py-2 flex-shrink-0"
+                              onClick={() => setIsPaymentOpen(true)}
+                            >
+                              Proceed to Engagement
+                            </button>
+                          )}
+                        </div>
                       </>
                     ) : (
                       <h2 className="text-body text-muted-foreground">Select a conversation</h2>
@@ -302,6 +332,22 @@ const Messages = () => {
         </Section>
       </main>
       <Footer />
+
+      {/* Section 5 — payment trigger from consultation/chat view */}
+      {selectedConversation && !isArchitect && (
+        <ConsultationPaymentModal
+          isOpen={isPaymentOpen}
+          onClose={() => setIsPaymentOpen(false)}
+          architectId={selectedConversation.architect.id}
+          architectName={selectedConversation.architect.name}
+          consultationId={getConversationId(selectedConversation)}
+          onPaymentSuccess={() => {
+            setIsPaymentOpen(false);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.chatConversations() });
+            toast.success("Payment confirmed. Your engagement is active.");
+          }}
+        />
+      )}
     </PageTransition>
   );
 };

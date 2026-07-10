@@ -151,11 +151,49 @@ export interface AvoraEstimate {
 import { frontendEnv } from "@/lib/env";
 
 export interface ApiUser {
+  _id?: string;
   id: string;
   name: string;
   email: string;
   role: "homeowner" | "architect" | "admin" | "CLIENT" | "ARCHITECT" | "ADMIN" | "SUPERADMIN";
   avatar?: string;
+  firmName?: string;
+  coaRegistrationNumber?: string;
+  gstNumber?: string;
+  yearsOfExperience?: number;
+  state?: string;
+  location?: string;
+  specialty?: string;
+  startingPrice?: number;
+  experience?: string;
+  teamSize?: number;
+  heroImage?: string;
+  profileImage?: string;
+  profilePhoto?: string;
+  about?: string;
+  slug?: string;
+  isVerified?: boolean;
+  isFeatured?: boolean;
+  consultationFee?: number;
+  startingProjectBudget?: number;
+  maximumProjectBudget?: number;
+  rating?: number;
+  completedProjects?: number;
+  reviewCount?: number;
+  trustScore?: number;
+  onlineConsultation?: boolean;
+  offlineConsultation?: boolean;
+  siteVisitAvailable?: boolean;
+  expertise?: unknown;
+  workingStyles?: unknown;
+  projectTypes?: unknown;
+  citiesServed?: unknown;
+  serviceCities?: unknown;
+  servicesOffered?: unknown;
+  portfolioImages?: unknown;
+  awards?: unknown;
+  certifications?: unknown;
+  profileCompletionPercentage?: number;
   onboardingCompleted?: boolean;
   city?: string;
   projectType?: string;
@@ -196,6 +234,11 @@ export interface Architect {
   _id: string;
   slug: string;
   name: string;
+  firmName?: string;
+  coaRegistrationNumber?: string;
+  gstNumber?: string;
+  yearsOfExperience?: number;
+  state?: string;
   location: string;
   specialty: string;
   rating: number;
@@ -203,6 +246,7 @@ export interface Architect {
   about: string;
   heroImage: string;
   profileImage?: string;
+  profilePhoto?: string;
   projects: ArchitectProject[];
   templates: ArchitectTemplate[];
   experience: string;
@@ -214,11 +258,62 @@ export interface Architect {
   reviewCount?: number;
   trustScore?: number;
   designStyles?: string[];
+  workingStyles?: string[];
   projectTypes?: string[];
   citiesServed?: string[];
+  serviceCities?: string[];
   servicesOffered?: string[];
+  expertise?: string[];
+  startingProjectBudget?: number;
+  maximumProjectBudget?: number;
+  onlineConsultation?: boolean;
+  offlineConsultation?: boolean;
+  siteVisitAvailable?: boolean;
+  portfolioImages?: string[];
+  awards?: string[];
+  certifications?: string[];
+  profileCompletionPercentage?: number;
   portfolioProjects?: ArchitectProject[];
   recommendationReason?: string;
+}
+
+export interface ArchitectOnboardingPayload {
+  firmName: string;
+  coaRegistrationNumber?: string;
+  gstNumber?: string;
+  yearsOfExperience?: number;
+  experience: string;
+  teamSize?: number;
+  city: string;
+  state?: string;
+  serviceCities?: string[];
+  expertise: string[];
+  workingStyles: string[];
+  consultationFee: number;
+  startingProjectBudget?: number;
+  maximumProjectBudget?: number;
+  onlineConsultation?: boolean;
+  offlineConsultation?: boolean;
+  siteVisitAvailable?: boolean;
+  profilePhoto?: string;
+  heroImage?: string;
+  portfolioImages?: string[];
+  awards?: string[];
+  certifications?: string[];
+  about?: string;
+}
+
+export interface ArchitectOnboardingState {
+  onboarding: Partial<ArchitectOnboardingPayload> & {
+    onboardingCompleted?: boolean;
+    profileCompletionPercentage?: number;
+    profilePhoto?: string;
+    heroImage?: string;
+    portfolioImages?: string[];
+    awards?: string[];
+    certifications?: string[];
+  };
+  profileCompletionPercentage: number;
 }
 
 export interface ProjectMilestone {
@@ -299,6 +394,7 @@ export interface Notification {
   title: string;
   body: string;
   read: boolean;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -752,6 +848,21 @@ export const api = {
   getArchitectBySlug(slug: string) {
     return request<Architect>(`/api/architects/${slug}`);
   },
+  getArchitectOnboarding() {
+    return request<ArchitectOnboardingState>("/api/architect/onboarding");
+  },
+  createArchitectOnboarding(payload: ArchitectOnboardingPayload) {
+    return request<ArchitectOnboardingState>("/api/architect/onboarding", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  updateArchitectOnboarding(payload: Partial<ArchitectOnboardingPayload>) {
+    return request<ArchitectOnboardingState>("/api/architect/onboarding", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
   summarizeConsultation(consultation: unknown) {
     return request<ConsultationSummaryResult>("/api/ai/summarize-consultation", {
       method: "POST",
@@ -790,7 +901,7 @@ export const api = {
   getProjectDetails(projectId: string) {
     return request<Project>(`/api/projects/${projectId}`);
   },
-  createProject(payload: { consultationId: string; title: string; description: string; estimatedBudget?: number; estimatedTime?: string }) {
+  createProject(payload: { consultationId: string; title: string; description?: string; estimatedBudget?: number; estimatedTime?: string }) {
     return request<Project>("/api/projects", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -813,6 +924,12 @@ export const api = {
   },
   getMyArchitectStats() {
     return request<ArchitectStats>("/api/architects/me/stats");
+  },
+  getArchitectInsights() {
+    return request<
+      | { hasEnoughData: false; reason: string }
+      | { hasEnoughData: true; summary: string; tags: string[]; meta: { totalConsultations: number; topStyle: string | null; topProjectType: string | null; topCity: string | null; avgBudgetLakh: number | null; activeProjects: number } }
+    >("/api/architects/me/insights");
   },
   getConsultations() {
     return request<any[]>("/api/consultations/my").then((rows) =>
@@ -1091,6 +1208,31 @@ export const api = {
     return request<{ brief: string }>("/api/ai/consultation-brief", {
       method: "POST",
       body: JSON.stringify({ consultation }),
+    });
+  },
+
+  // ── Auth: password reset & email verification ─────────────────
+  forgotPassword(email: string) {
+    return request<{ message: string }>("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+  resetPassword(token: string, newPassword: string) {
+    return request<{ message: string }>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, newPassword }),
+    });
+  },
+  verifyEmail(token: string) {
+    return request<{ message: string }>("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  },
+  resendVerification() {
+    return request<{ message: string }>("/api/auth/resend-verification", {
+      method: "POST",
     });
   },
 };
