@@ -216,43 +216,26 @@ const ArchitectOnboarding = () => {
     }) as FormState);
   };
 
-  const validateStep = (index: number, checkAll = false) => {
-    const nextErrors: Record<string, string> = checkAll ? {} : { ...errors };
+  const validateStep = (index: number) => {
+    const nextErrors: Record<string, string> = {};
 
-    const validateZero = () => {
-      delete nextErrors.firmName;
-      delete nextErrors.city;
-      delete nextErrors.experience;
-      if (!form.firmName?.trim()) nextErrors.firmName = "Firm name is required.";
-      if (!form.city?.trim()) nextErrors.city = "City is required.";
-      if (!form.experience?.trim()) nextErrors.experience = "Experience is required.";
-    };
-
-    const validateOne = () => {
-      delete nextErrors.expertise;
-      if (form.expertise.length === 0) nextErrors.expertise = "Select at least one expertise.";
-    };
-
-    const validateTwo = () => {
-      delete nextErrors.workingStyles;
-      if (form.workingStyles.length === 0) nextErrors.workingStyles = "Select at least one style.";
-    };
-
-    const validateThree = () => {
-      delete nextErrors.consultationFee;
+    if (index === 0) {
+      if (!form.firmName.trim()) nextErrors.firmName = "Firm name is required.";
+      if (!form.city.trim()) nextErrors.city = "City is required.";
+      if (!form.experience.trim()) nextErrors.experience = "Experience is required.";
       if (!form.consultationFee || form.consultationFee < 1) nextErrors.consultationFee = "Consultation fee is required.";
-    };
+    }
 
-    if (checkAll) {
-      validateZero();
-      validateOne();
-      validateTwo();
-      validateThree();
-    } else {
-      if (index === 0) validateZero();
-      if (index === 1) validateOne();
-      if (index === 2) validateTwo();
-      if (index === 3) validateThree();
+    if (index === 1 && form.expertise.length === 0) {
+      nextErrors.expertise = "Select at least one expertise.";
+    }
+
+    if (index === 2 && form.workingStyles.length === 0) {
+      nextErrors.workingStyles = "Select at least one style.";
+    }
+
+    if (index === 3 && (!form.consultationFee || form.consultationFee < 1)) {
+      nextErrors.consultationFee = "Consultation fee is required.";
     }
 
     setErrors(nextErrors);
@@ -260,30 +243,23 @@ const ArchitectOnboarding = () => {
   };
 
   const saveDraft = async (shouldComplete = false) => {
-    if (shouldComplete) {
-      if (!validateStep(stepIndex, true)) {
-        toast.error("Please fill all required fields across all steps.");
-        return;
-      }
-    } else {
-      if (!validateStep(stepIndex)) return;
-    }
+    if (!validateStep(stepIndex)) return;
 
     setSaving(true);
     try {
       const payload = {
-        firmName: form.firmName || undefined,
+        firmName: form.firmName,
         coaRegistrationNumber: form.coaRegistrationNumber || undefined,
         gstNumber: form.gstNumber || undefined,
         yearsOfExperience: form.yearsOfExperience,
-        experience: form.experience || undefined,
+        experience: form.experience,
         teamSize: form.teamSize,
-        city: form.city || undefined,
+        city: form.city,
         state: form.state || undefined,
-        serviceCities: form.serviceCities?.length ? form.serviceCities : undefined,
-        expertise: form.expertise?.length ? form.expertise : undefined,
-        workingStyles: form.workingStyles?.length ? form.workingStyles : undefined,
-        consultationFee: form.consultationFee || undefined,
+        serviceCities: form.serviceCities,
+        expertise: form.expertise,
+        workingStyles: form.workingStyles,
+        consultationFee: form.consultationFee,
         startingProjectBudget: form.startingProjectBudget,
         maximumProjectBudget: form.maximumProjectBudget,
         onlineConsultation: form.onlineConsultation,
@@ -291,20 +267,16 @@ const ArchitectOnboarding = () => {
         siteVisitAvailable: form.siteVisitAvailable,
         profilePhoto: form.profilePhoto || undefined,
         heroImage: form.heroImage || undefined,
-        portfolioImages: form.portfolioImages?.length ? form.portfolioImages : undefined,
-        awards: form.awards?.length ? form.awards : undefined,
-        certifications: form.certifications?.length ? form.certifications : undefined,
+        portfolioImages: form.portfolioImages,
+        awards: form.awards,
+        certifications: form.certifications,
         about: form.about || undefined,
       } satisfies Partial<ArchitectOnboardingPayload>;
 
       const result = shouldComplete ? await api.createArchitectOnboarding(payload as ArchitectOnboardingPayload) : await api.updateArchitectOnboarding(payload);
       setOnboardingState(result);
       await refresh();
-      // Invalidate profile and the full architects list so /explore shows this architect immediately
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.profile() }),
-        queryClient.invalidateQueries({ queryKey: ["architects"] }),
-      ]);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile() });
       if (shouldComplete) {
         setSubmitted(true);
         if (draftKey) window.localStorage.removeItem(draftKey);
@@ -330,10 +302,10 @@ const ArchitectOnboarding = () => {
   const goNext = async () => {
     if (!validateStep(stepIndex)) return;
     await saveDraft(false);
-    setStepIndex((current) => Math.min(current + 1, 7) as StepIndex);
+    setStepIndex((current) => Math.min((current + 1) as StepIndex, 7));
   };
 
-  const goBack = () => setStepIndex((current) => Math.max(current - 1, 0) as StepIndex);
+  const goBack = () => setStepIndex((current) => Math.max((current - 1) as StepIndex, 0));
 
   const completion = onboardingState?.profileCompletionPercentage ?? 0;
 

@@ -27,16 +27,30 @@ const app = express();
 /* ── CORS ────────────────────────────────────────────────────── */
 const allowedOrigins = [
   env.FRONTEND_URL,
+  "https://dome-link.com",
+  "https://www.dome-link.com",
+  "https://domelink-frontend.vercel.app",
   "http://localhost:5173",
   "http://localhost:8080",
   "http://localhost:3000",
 ].filter(Boolean);
 
 const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    if (!origin) return callback(null, true); // curl, Postman, mobile
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    logger.warn("CORS blocked", { origin });
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) => {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    logger.warn("CORS blocked", {
+      origin,
+      allowedOrigins,
+    });
+
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
@@ -60,7 +74,12 @@ app.use(helmetFn({
       styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc:        ["'self'", "https://fonts.gstatic.com"],
       imgSrc:         ["'self'", "data:", "https://res.cloudinary.com", "https://images.unsplash.com"],
-      connectSrc:     ["'self'", env.FRONTEND_URL || "http://localhost:8080"],
+      connectSrc:     [
+                        "'self'",
+                        "https://dome-link.com",
+                        "https://www.dome-link.com",
+                        "https://domelink-frontend.vercel.app",
+                      ],
       frameSrc:       ["'none'"],
       objectSrc:      ["'none'"],
       upgradeInsecureRequests: env.NODE_ENV === "production" ? [] : null,
