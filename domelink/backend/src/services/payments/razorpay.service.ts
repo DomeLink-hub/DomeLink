@@ -22,11 +22,22 @@ export const createRazorpayOrder = async (amountPaise: number, currency = 'INR',
     return { skipped: true, reason: 'RAZORPAY_KEY_ID/SECRET not configured' };
   }
 
-  return razorpay.orders.create({
-    amount: amountPaise,
-    currency,
-    receipt: receipt || `domelink_${Date.now()}`,
-  });
+  try {
+    return await razorpay.orders.create({
+      amount: amountPaise,
+      currency,
+      receipt: receipt || `domelink_${Date.now()}`,
+    });
+  } catch (err: any) {
+    console.error("========== RAZORPAY ERROR ==========");
+    console.error(err);
+    console.error("status:", err?.statusCode);
+    console.error("error:", err?.error);
+    console.error("description:", err?.error?.description);
+    console.error("response:", err?.response);
+    console.error("====================================");
+    throw err;
+  }
 };
 
 export const verifyWebhookSignature = (payload: string | Buffer, signature: string, secret = key_secret || '') => {

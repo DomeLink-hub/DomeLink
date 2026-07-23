@@ -210,7 +210,18 @@ export const createBookingOrder = asyncHandler(async (req: Request, res: Respons
 
   const amountPaise = plan.priceInr * 100;
   const shortId = userId.slice(0, 8);
-  const order = await createRazorpayOrder(amountPaise, "INR", `bk_${shortId}_${Date.now()}`);
+  const receipt = `bk_${shortId}_${Date.now()}`;
+
+  logger.info("Creating Razorpay order", {
+    planName: payload.planName,
+    amount: payload.amount,
+    amountPaise,
+    receipt,
+    architectId: payload.architectId,
+    consultationId: payload.consultationId,
+  });
+
+  const order = await createRazorpayOrder(amountPaise, "INR", receipt);
 
   if (!order || typeof order !== "object" || "skipped" in order) {
     throw new AppError("Razorpay is not configured", 503);
