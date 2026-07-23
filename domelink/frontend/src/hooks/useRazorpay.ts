@@ -96,6 +96,11 @@ export const useRazorpay = () => {
           theme: {
             color: "#000000",
           },
+          modal: {
+            ondismiss: function () {
+              // Custom dismiss logic if required, generally safe as is for raw function usage
+            }
+          }
         };
 
         const rzp = new window.Razorpay(options);

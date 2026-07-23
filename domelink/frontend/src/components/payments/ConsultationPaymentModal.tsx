@@ -114,10 +114,16 @@ const ConsultationPaymentModal = ({
           email: user?.email || "",
         },
         theme: { color: "#1b1612" },
+        modal: {
+          ondismiss: function () {
+            setPaying(false);
+          }
+        }
       });
 
       rzp.on("payment.failed", (res: { error?: { description?: string } }) => {
         toast.error(res.error?.description || "Payment failed");
+        setPaying(false);
       });
       rzp.open();
     } catch (err: unknown) {
@@ -125,7 +131,6 @@ const ConsultationPaymentModal = ({
         (err as { message?: string })?.message ||
         (err instanceof Error ? err.message : "Unable to start payment");
       toast.error(msg);
-    } finally {
       setPaying(false);
     }
   };
