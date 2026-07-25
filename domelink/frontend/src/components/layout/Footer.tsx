@@ -75,7 +75,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 pt-16">
           <div className="md:col-span-2">
             <Link to="/" className="font-display text-2xl uppercase tracking-[0.2em] flex items-center gap-3">
-              <span className="dome-orb" />
+              <img src="/image.png" alt="DomeLink Logo" className="h-10 w-auto object-contain" />
               DomeLink
             </Link>
             <p className="mt-5 text-body text-muted-foreground max-w-sm">

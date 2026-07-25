@@ -20,7 +20,7 @@ const RoleSelection = () => {
         className="fixed top-6 left-1/2 -translate-x-1/2 z-50"
       >
         <span className="font-display text-2xl md:text-3xl text-white uppercase tracking-[0.2em] flex items-center gap-3">
-          <span className="dome-orb" />
+          <img src="/image.png" alt="DomeLink Logo" className="h-12 w-auto object-contain" />
           DomeLink
         </span>
       </motion.div>

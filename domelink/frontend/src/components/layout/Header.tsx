@@ -179,7 +179,7 @@ const Header = ({ variant = "default" }: HeaderProps) => {
         {/* Logo */}
         <Link to={isLoggedIn ? dashboardFor(user?.role ?? "") : "/"} className="group flex-shrink-0">
           <span className="font-display text-xl md:text-2xl uppercase tracking-[0.2em] text-white group-hover:text-white/80 transition-colors duration-300 flex items-center gap-3">
-            <span className="dome-orb" />
+            <img src="/image.png" alt="DomeLink Logo" className="h-10 md:h-12 w-auto object-contain drop-shadow-md" />
             DomeLink
           </span>
         </Link>
